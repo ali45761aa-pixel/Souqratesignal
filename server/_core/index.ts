@@ -1,4 +1,5 @@
-import "dotenv/config";
+import { startWalletMonitorCron } from "../cron/walletMonitor";
+import { startReportCron } from "../cron/reportGenerator";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
@@ -34,8 +35,15 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+  // Health check endpoint
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+
   // tRPC API
   app.use(
     "/api/trpc",
@@ -44,6 +52,7 @@ async function startServer() {
       createContext,
     })
   );
+
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
@@ -60,6 +69,9 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    // Start background jobs after server is ready
+    startWalletMonitorCron();
+    startReportCron();
   });
 }
 

@@ -1,42 +1,78 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { LangProvider } from "./contexts/LangContext";
+import PlatformLayout from "./components/PlatformLayout";
+import ChatPage from "./pages/ChatPage";
+import DashboardPage from "./pages/DashboardPage";
+import ProjectsPage from "./pages/ProjectsPage";
+import AdminPage from "./pages/AdminPage";
+import TemplatesPage from "./pages/TemplatesPage";
+import CRMPage from "./pages/CRMPage";
+import PaymentsPage from "./pages/PaymentsPage";
+import SettingsPage from "./pages/SettingsPage";
+import NotFound from "./pages/NotFound";
 import Home from "./pages/Home";
 
+// Pages that use the platform layout (authenticated)
+const PLATFORM_ROUTES = [
+  "/chat", "/dashboard", "/projects", "/admin", "/templates",
+  "/crm", "/payments", "/invoices", "/tickets", "/settings",
+  "/plugins", "/prompts", "/stats",
+];
+
 function Router() {
-  // make sure to consider if you need authentication for certain routes
+  const [location] = useLocation();
+  const isPlatformRoute = PLATFORM_ROUTES.some(r => location.startsWith(r));
+
+  if (isPlatformRoute) {
+    return (
+      <PlatformLayout>
+        <Switch>
+          <Route path="/chat" component={() => <ChatPage />} />
+          <Route path="/dashboard" component={DashboardPage} />
+          <Route path="/projects" component={ProjectsPage} />
+          <Route path="/admin" component={AdminPage} />
+          <Route path="/templates" component={TemplatesPage} />
+          <Route path="/crm" component={CRMPage} />
+          <Route path="/payments" component={PaymentsPage} />
+          <Route path="/settings" component={SettingsPage} />
+          <Route path="/invoices" component={() => <CRMPage />} />
+          <Route path="/tickets" component={() => <CRMPage />} />
+          <Route path="/plugins" component={() => <TemplatesPage />} />
+          <Route path="/prompts" component={() => <DashboardPage />} />
+          <Route path="/stats" component={() => <DashboardPage />} />
+          <Route component={NotFound} />
+        </Switch>
+      </PlatformLayout>
+    );
+  }
+
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
+      <Route path="/" component={Home} />
+      <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+      <ThemeProvider defaultTheme="dark" switchable>
+        <LangProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </LangProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );
 }
 
 export default App;
+      {/* App: AI Agent Platform - منصة الوكيل الذكي */}
