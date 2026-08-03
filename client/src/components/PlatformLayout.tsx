@@ -177,65 +177,120 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   );
 
   return (
-      <div className="flex overflow-hidden bg-background" style={{ height: '100dvh' }} dir={isRTL ? "rtl" : "ltr"}>
-      {/* Desktop Sidebar */}
-      <aside
-        className={cn(
-          "hidden md:flex flex-col border-e border-border bg-card/50 transition-all duration-200 shrink-0",
-          collapsed ? "w-16" : "w-[var(--sidebar-width)]"
-        )}
-      >
+    <div
+      className="flex bg-background"
+      style={{ height: '100dvh', flexDirection: isRTL ? 'row-reverse' : 'row' }}
+      dir={isRTL ? "rtl" : "ltr"}
+    >
+      {/* ── Desktop Sidebar (hidden on mobile) ── */}
+      <aside className={cn(
+        "hidden md:flex flex-col border-e border-border bg-card/50 transition-all duration-200 shrink-0",
+        collapsed ? "w-16" : "w-[var(--sidebar-width)]"
+      )}>
         <SidebarContent />
       </aside>
 
-      {/* Mobile Sidebar Overlay */}
+      {/* ── Mobile Full-Screen Sidebar Overlay ── */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute start-0 top-0 bottom-0 w-[var(--sidebar-width)] bg-card border-e border-border flex flex-col">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <aside
+            className="absolute top-0 bottom-0 w-72 bg-card border-e border-border flex flex-col overflow-hidden"
+            style={{ [isRTL ? 'right' : 'left']: 0 }}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5 text-white" />
+                </div>
+                <span className="font-bold text-sm">{lang === "ar" ? "الوكيل الذكي" : "AI Agent"}</span>
+              </div>
+              <button onClick={() => setMobileOpen(false)} className="text-muted-foreground p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
             <SidebarContent />
           </aside>
         </div>
       )}
 
-      {/* Main Content */}
+      {/* ── Main Content Area ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header */}
-        <header className="h-[var(--header-height)] border-b border-border flex items-center justify-between px-4 bg-card/50 shrink-0">
-          <div className="flex items-center gap-3">
+        <header className="h-12 border-b border-border flex items-center justify-between px-3 bg-card/50 shrink-0">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setMobileOpen(true)}
-              className="md:hidden text-muted-foreground hover:text-foreground"
+              className="md:hidden p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Zap className="w-4 h-4 text-primary" />
-              <span className="hidden sm:inline">
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Zap className="w-3.5 h-3.5 text-primary" />
+              <span className="hidden sm:inline text-xs">
                 {lang === "ar" ? "منصة الوكيل الذكي" : "AI Agent Platform"}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Notifications */}
-            <button className="relative p-2 text-muted-foreground hover:text-foreground transition-colors">
+          <div className="flex items-center gap-1">
+            <button className="relative p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted">
               <Bell className="w-4 h-4" />
               <span className="absolute top-1 end-1 w-1.5 h-1.5 bg-primary rounded-full" />
             </button>
-            {/* New Project CTA */}
             <Link href="/chat">
-              <Button size="sm" className="gradient-primary text-white gap-1.5 text-xs hidden sm:flex">
-                <Sparkles className="w-3.5 h-3.5" />
+              <Button size="sm" className="gradient-primary text-white gap-1 text-xs h-7 px-2 hidden sm:flex">
+                <Sparkles className="w-3 h-3" />
                 {tr.nav.newProject}
               </Button>
             </Link>
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        {/* Page Content - scrollable */}
+        <main
+          className="flex-1 overflow-y-auto overflow-x-hidden"
+          style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+        >
           {children}
         </main>
+
+        {/* ── Mobile Bottom Navigation ── */}
+        <nav
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border flex items-center justify-around"
+          style={{ height: 'calc(56px + env(safe-area-inset-bottom, 0px))', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
+          <Link href="/chat">
+            <button className={cn("flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors", location.startsWith("/chat") ? "text-primary" : "text-muted-foreground")}>
+              <Sparkles className="w-5 h-5" />
+              <span className="text-[10px]">{lang === "ar" ? "جديد" : "New"}</span>
+            </button>
+          </Link>
+          <Link href="/dashboard">
+            <button className={cn("flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors", location.startsWith("/dashboard") ? "text-primary" : "text-muted-foreground")}>
+              <LayoutDashboard className="w-5 h-5" />
+              <span className="text-[10px]">{lang === "ar" ? "لوحة" : "Dash"}</span>
+            </button>
+          </Link>
+          <Link href="/projects">
+            <button className={cn("flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors", location.startsWith("/projects") ? "text-primary" : "text-muted-foreground")}>
+              <FolderOpen className="w-5 h-5" />
+              <span className="text-[10px]">{lang === "ar" ? "مشاريع" : "Projects"}</span>
+            </button>
+          </Link>
+          <Link href="/payments">
+            <button className={cn("flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors", location.startsWith("/payments") ? "text-primary" : "text-muted-foreground")}>
+              <CreditCard className="w-5 h-5" />
+              <span className="text-[10px]">{lang === "ar" ? "دفع" : "Pay"}</span>
+            </button>
+          </Link>
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-muted-foreground"
+          >
+            <Menu className="w-5 h-5" />
+            <span className="text-[10px]">{lang === "ar" ? "المزيد" : "More"}</span>
+          </button>
+        </nav>
       </div>
     </div>
   );

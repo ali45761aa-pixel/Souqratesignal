@@ -315,7 +315,7 @@ export default function ChatPage({ projectId }: { projectId?: number }) {
         </ScrollArea>
 
         {/* ── Input Area ── */}
-        <div className="border-t border-border p-4" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="border-t border-border p-3 bg-background">
           {/* Attachments preview */}
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
