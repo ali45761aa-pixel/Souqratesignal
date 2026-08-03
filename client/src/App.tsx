@@ -20,7 +20,7 @@ import NotFound from "./pages/NotFound";
 import Home from "./pages/Home";
 
 const PLATFORM_ROUTES = [
-  "/chat", "/builder", "/dashboard", "/projects", "/admin", "/templates",
+  "/chat", "/builder", "/agent-builder", "/dashboard", "/projects", "/admin", "/templates",
   "/crm", "/payments", "/invoices", "/tickets", "/settings",
   "/plugins", "/prompts", "/stats", "/preview", "/versions",
 ];
@@ -80,3 +80,5 @@ function App() {
 }
 
 export default App;
+import AgentBuilderPage from "./pages/AgentBuilderPage";
+          <Route path="/agent-builder" component={() => <AgentBuilderPage />} />

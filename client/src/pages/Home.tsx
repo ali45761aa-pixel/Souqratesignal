@@ -53,7 +53,7 @@ export default function Home() {
   const handleSubmit = () => {
     if (!input.trim()) return;
     sessionStorage.setItem("pendingPrompt", input.trim());
-    navigate("/builder");
+    navigate("/agent-builder");
   };
 
   return (
@@ -154,7 +154,7 @@ export default function Home() {
                     setInput(action.prompt);
                     textareaRef.current?.focus();
                   } else {
-                    navigate("/builder");
+                    navigate("/agent-builder");
                   }
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border hover:border-primary/40 hover:bg-primary/5 transition-all text-sm text-muted-foreground hover:text-foreground"

@@ -48,6 +48,9 @@ async function startServer() {
   // Streaming build endpoint
   app.use("/api", streamRouter);
 
+  // Agents system endpoints
+  app.use("/api/agents", agentsRouter);
+
 
   // tRPC API
   app.use(
@@ -81,3 +84,4 @@ async function startServer() {
 }
 
 startServer().catch(console.error);
+import { agentsRouter } from "../routes/agents";
