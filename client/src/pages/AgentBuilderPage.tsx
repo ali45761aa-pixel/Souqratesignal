@@ -272,6 +272,11 @@ export default function AgentBuilderPage() {
     setProjectMemory(memory);
     setCurrentStepIndex(-1);
     setIsExecuting(false);
+    // Update liveHtmlFile with the final best HTML from projectMemory
+    const finalHtmlFiles = deduplicateFiles(allFiles).filter(f => f.language === "html");
+    if (finalHtmlFiles.length > 0) {
+      setLiveHtmlFile(finalHtmlFiles[finalHtmlFiles.length - 1].content);
+    }
     setActiveTab("preview");
     toast.success(lang === "ar" ? "🎉 المشروع مكتمل! يمكنك معاينته وتحميله" : "🎉 Project complete! You can preview and download it");
   }, [plan, prompt, lang, isExecuting]);
@@ -357,11 +362,11 @@ export default function AgentBuilderPage() {
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const allFiles = projectMemory?.allFiles || [];
-  // Prefer the latest HTML file: from projectMemory OR liveHtmlFile during execution
+  // Prefer the latest HTML file: from projectMemory, then liveHtmlFile as fallback
   const htmlFiles = allFiles.filter(f => f.language === "html");
   const htmlFileContent = htmlFiles.length > 0
-    ? htmlFiles[htmlFiles.length - 1].content  // latest from completed project
-    : liveHtmlFile || undefined;                // live during execution
+    ? htmlFiles[htmlFiles.length - 1].content  // latest from completed project (best quality)
+    : liveHtmlFile ?? undefined;                // fallback: live preview or last seen HTML
   const htmlFile = htmlFileContent ? { content: htmlFileContent, name: "index.html", language: "html" } : undefined;
   const completedSteps = plan.filter(s => s.status === "done").length;
   const totalSteps = plan.length;
