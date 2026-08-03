@@ -11,7 +11,7 @@ import {
   Sparkles, LayoutDashboard, FolderOpen, Users, CreditCard,
   FileText, Ticket, Settings, Key, Brain, Layers, Puzzle,
   BookOpen, Bell, ChevronLeft, ChevronRight, Globe, Moon, Sun,
-  Menu, X, LogOut, BarChart3, MessageSquare, Zap, Code2, GitBranch
+  Menu, X, LogOut, BarChart3, MessageSquare, Zap, Code2, GitBranch, Wand2
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -39,6 +39,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   const navItems: NavItem[] = [
     // Main
     { icon: <Sparkles className="w-4 h-4" />, labelKey: "newProject", href: "/chat", section: "main" },
+    { icon: <Wand2 className="w-4 h-4" />, labelKey: "builder", href: "/builder", section: "main" },
     { icon: <LayoutDashboard className="w-4 h-4" />, labelKey: "dashboard", href: "/dashboard", section: "main" },
     { icon: <FolderOpen className="w-4 h-4" />, labelKey: "projects", href: "/projects", section: "main" },
     // Build

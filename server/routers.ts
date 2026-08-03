@@ -25,6 +25,8 @@ export const appRouter = router({
   payments: paymentsRouter,
   crm: crmRouter,
   templates: templatesRouter,
+  builder: builderRouter,
 });
 
 export type AppRouter = typeof appRouter;
+import { builderRouter } from "./routers/builder";

@@ -7,6 +7,7 @@ export const translations = {
     // Navigation
     nav: {
       newProject: "مشروع جديد",
+      builder: "بناء المشاريع",
       projects: "المشاريع",
       dashboard: "لوحة التحكم",
       agents: "الوكلاء",
@@ -180,6 +181,7 @@ export const translations = {
   en: {
     nav: {
       newProject: "New Project",
+      builder: "Build Projects",
       projects: "Projects",
       dashboard: "Dashboard",
       agents: "Agents",

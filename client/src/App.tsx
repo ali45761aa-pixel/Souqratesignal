@@ -1,4 +1,3 @@
-import { useAuth } from "@/_core/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Route, Switch, useLocation } from "wouter";
@@ -7,6 +6,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { LangProvider } from "./contexts/LangContext";
 import PlatformLayout from "./components/PlatformLayout";
 import ChatPage from "./pages/ChatPage";
+import BuilderPage from "./pages/BuilderPage";
 import DashboardPage from "./pages/DashboardPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import AdminPage from "./pages/AdminPage";
@@ -19,9 +19,8 @@ import VersionControlPage from "./pages/VersionControlPage";
 import NotFound from "./pages/NotFound";
 import Home from "./pages/Home";
 
-// Pages that use the platform layout
 const PLATFORM_ROUTES = [
-  "/chat", "/dashboard", "/projects", "/admin", "/templates",
+  "/chat", "/builder", "/dashboard", "/projects", "/admin", "/templates",
   "/crm", "/payments", "/invoices", "/tickets", "/settings",
   "/plugins", "/prompts", "/stats", "/preview", "/versions",
 ];
@@ -29,12 +28,13 @@ const PLATFORM_ROUTES = [
 function Router() {
   const [location] = useLocation();
   const isPlatformRoute = PLATFORM_ROUTES.some(r => location.startsWith(r));
-  // No auth check needed - platform is open to all users
+
   if (isPlatformRoute) {
     return (
       <PlatformLayout>
         <Switch>
           <Route path="/chat" component={() => <ChatPage />} />
+          <Route path="/builder" component={() => <BuilderPage />} />
           <Route path="/dashboard" component={DashboardPage} />
           <Route path="/projects" component={ProjectsPage} />
           <Route path="/admin" component={AdminPage} />
