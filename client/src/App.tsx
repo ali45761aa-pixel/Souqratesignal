@@ -7,6 +7,7 @@ import { LangProvider } from "./contexts/LangContext";
 import PlatformLayout from "./components/PlatformLayout";
 import ChatPage from "./pages/ChatPage";
 import BuilderPage from "./pages/BuilderPage";
+import AgentBuilderPage from "./pages/AgentBuilderPage";
 import DashboardPage from "./pages/DashboardPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import AdminPage from "./pages/AdminPage";
@@ -80,5 +81,3 @@ function App() {
 }
 
 export default App;
-import AgentBuilderPage from "./pages/AgentBuilderPage";
-          <Route path="/agent-builder" component={() => <AgentBuilderPage />} />
