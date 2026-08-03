@@ -36,6 +36,7 @@ function Router() {
         <Switch>
           <Route path="/chat" component={() => <ChatPage />} />
           <Route path="/builder" component={() => <BuilderPage />} />
+          <Route path="/agent-builder" component={() => <AgentBuilderPage />} />
           <Route path="/dashboard" component={DashboardPage} />
           <Route path="/projects" component={ProjectsPage} />
           <Route path="/admin" component={AdminPage} />
