@@ -330,7 +330,9 @@ export default function AgentBuilderPage() {
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const allFiles = projectMemory?.allFiles || [];
-  const htmlFile = allFiles.find(f => f.language === "html");
+  // Prefer the latest HTML file (from auditor > reviewer > optimizer > mobile > frontend > game > seo)
+  const htmlFiles = allFiles.filter(f => f.language === "html");
+  const htmlFile = htmlFiles.length > 0 ? htmlFiles[htmlFiles.length - 1] : undefined;
   const completedSteps = plan.filter(s => s.status === "done").length;
   const totalSteps = plan.length;
   const progress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
@@ -689,7 +691,8 @@ export default function AgentBuilderPage() {
                   </button>
                 ))}
               </div>
-              {!htmlFile && <span className="text-xs text-muted-foreground">{lang === "ar" ? "لا يوجد ملف HTML للمعاينة" : "No HTML file for preview"}</span>}
+              {!htmlFile && isExecuting && <span className="text-xs text-primary/70 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />{lang === "ar" ? "جاري البناء..." : "Building..."}</span>}
+              {!htmlFile && !isExecuting && plan.length > 0 && <span className="text-xs text-muted-foreground">{lang === "ar" ? "لا يوجد ملف HTML بعد" : "No HTML file yet"}</span>}
             </div>
             <div className="flex-1 overflow-auto bg-muted/20 flex items-start justify-center p-4">
               {htmlFile ? (
@@ -700,7 +703,24 @@ export default function AgentBuilderPage() {
               ) : (
                 <div className="text-center text-muted-foreground py-20">
                   <Eye className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>{lang === "ar" ? "المعاينة ستظهر بعد اكتمال البناء" : "Preview will appear after build completes"}</p>
+                  {isExecuting ? (
+                    <div>
+                      <p className="text-primary font-medium mb-2 text-base">{lang === "ar" ? "🔨 الوكلاء يبنون مشروعك..." : "🔨 Agents are building your project..."}</p>
+                      <p className="text-xs text-muted-foreground mb-4">{lang === "ar" ? "ستظهر المعاينة تلقائياً عند اكتمال وكيل Frontend" : "Preview will appear automatically when Frontend agent completes"}</p>
+                      <div className="flex justify-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="w-2.5 h-2.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="w-2.5 h-2.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "300ms" }} />
+                      </div>
+                    </div>
+                  ) : plan.length > 0 ? (
+                    <div>
+                      <p className="mb-2">{lang === "ar" ? "المعاينة ستظهر بعد اكتمال البناء" : "Preview will appear after build completes"}</p>
+                      <p className="text-xs">{lang === "ar" ? "اضغط تنفيذ لبدء البناء" : "Press Execute to start building"}</p>
+                    </div>
+                  ) : (
+                    <p>{lang === "ar" ? "اكتب برومبتك وابدأ البناء" : "Write your prompt and start building"}</p>
+                  )}
                 </div>
               )}
             </div>

@@ -945,6 +945,44 @@ For each: "🔴 Critical" / "🟡 Improvement" / "🟢 Note". Return audited cod
 
 // ── Extract files from agent output ──────────────────────────────────────────
 function extractFiles(content: string, agentId: string): { name: string; content: string; language: string }[] {
+  // Try to extract named code blocks first (```html, ```javascript, etc.)
+  const namedBlocks: { name: string; content: string; language: string }[] = [];
+  const blockRegex = /```(\w+)\n([\s\S]*?)```/g;
+  let match;
+  const langToFile: Record<string, { name: string; lang: string }> = {
+    html: { name: "index.html", lang: "html" },
+    javascript: { name: "script.js", lang: "javascript" },
+    js: { name: "script.js", lang: "javascript" },
+    css: { name: "style.css", lang: "css" },
+    python: { name: "main.py", lang: "python" },
+    sql: { name: "schema.sql", lang: "sql" },
+    typescript: { name: "index.ts", lang: "typescript" },
+    ts: { name: "index.ts", lang: "typescript" },
+    bash: { name: "setup.sh", lang: "bash" },
+    sh: { name: "setup.sh", lang: "bash" },
+    json: { name: "config.json", lang: "json" },
+    dockerfile: { name: "Dockerfile", lang: "dockerfile" },
+    markdown: { name: "README.md", lang: "markdown" },
+    md: { name: "README.md", lang: "markdown" },
+  };
+
+  while ((match = blockRegex.exec(content)) !== null) {
+    const lang = match[1].toLowerCase();
+    const blockContent = match[2].trim();
+    if (blockContent.length > 50) {
+      const fileInfo = langToFile[lang];
+      if (fileInfo) {
+        // Avoid duplicates — use latest version
+        const existing = namedBlocks.findIndex(b => b.name === fileInfo.name);
+        if (existing >= 0) { namedBlocks[existing] = { name: fileInfo.name, content: blockContent, language: fileInfo.lang }; }
+        else { namedBlocks.push({ name: fileInfo.name, content: blockContent, language: fileInfo.lang }); }
+      }
+    }
+  }
+
+  if (namedBlocks.length > 0) return namedBlocks;
+
+  // Fallback: use agent-specific mapping
   const cleaned = content.replace(/```[\w]*\n?/g, "").replace(/```/g, "").trim();
   const extMap: Record<string, { name: string; lang: string }> = {
     frontend: { name: "index.html", lang: "html" },
@@ -955,13 +993,30 @@ function extractFiles(content: string, agentId: string): { name: string; content
     game: { name: "game.html", lang: "html" },
     deployer: { name: "Dockerfile", lang: "dockerfile" },
     docs: { name: "README.md", lang: "markdown" },
-    seo: { name: "seo.html", lang: "html" },
+    seo: { name: "index.html", lang: "html" },
     mobile: { name: "index.html", lang: "html" },
     optimizer: { name: "index.html", lang: "html" },
     tester: { name: "index.html", lang: "html" },
+    reviewer: { name: "index.html", lang: "html" },
+    auditor: { name: "index.html", lang: "html" },
+    payment: { name: "payment.html", lang: "html" },
+    analytics: { name: "analytics.js", lang: "javascript" },
+    content: { name: "content.md", lang: "markdown" },
+    designer: { name: "design.css", lang: "css" },
+    analyzer: { name: "analysis.md", lang: "markdown" },
+    memory: { name: "README.md", lang: "markdown" },
   };
+
+  // If content contains HTML tags, treat as HTML
+  if (content.includes("<!DOCTYPE") || content.includes("<html") || content.includes("<body")) {
+    const htmlStart = content.indexOf("<!DOCTYPE") >= 0 ? content.indexOf("<!DOCTYPE") : content.indexOf("<html");
+    if (htmlStart >= 0) {
+      return [{ name: "index.html", content: content.slice(htmlStart), language: "html" }];
+    }
+  }
+
   const fileInfo = extMap[agentId];
-  if (!fileInfo) return [];
+  if (!fileInfo) return [{ name: "output.txt", content: cleaned, language: "text" }];
   return [{ name: fileInfo.name, content: cleaned, language: fileInfo.lang }];
 }
 
