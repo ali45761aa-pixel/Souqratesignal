@@ -74,7 +74,7 @@ function CryptoInvoice({ payment, onRefresh }: { payment: any; onRefresh: () => 
           <Label className="text-xs text-muted-foreground">{tr.payments.walletAddress}</Label>
           <div className="flex gap-2">
             <code className="flex-1 text-xs bg-muted p-2.5 rounded-lg font-mono break-all text-foreground">
-              {payment.walletAddress || lang === "ar" ? "لم يتم تكوين المحفظة بعد" : "Wallet not configured yet"}
+              {payment.walletAddress ?? (lang === "ar" ? "لم يتم تكوين المحفظة بعد" : "Wallet not configured yet")}
             </code>
             <Button size="icon" variant="outline" className="shrink-0 h-auto" onClick={() => copy(payment.walletAddress, "address")}>
               {copied === "address" ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}

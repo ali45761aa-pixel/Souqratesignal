@@ -14,10 +14,12 @@ import TemplatesPage from "./pages/TemplatesPage";
 import CRMPage from "./pages/CRMPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import SettingsPage from "./pages/SettingsPage";
+import LivePreviewPage from "./pages/LivePreviewPage";
+import VersionControlPage from "./pages/VersionControlPage";
 import NotFound from "./pages/NotFound";
 import Home from "./pages/Home";
 
-// Pages that use the platform layout (authenticated)
+// Pages that use the platform layout
 const PLATFORM_ROUTES = [
   "/chat", "/dashboard", "/projects", "/admin", "/templates",
   "/crm", "/payments", "/invoices", "/tickets", "/settings",
@@ -27,15 +29,13 @@ const PLATFORM_ROUTES = [
 function Router() {
   const [location] = useLocation();
   const isPlatformRoute = PLATFORM_ROUTES.some(r => location.startsWith(r));
-  const { isAuthenticated, loading } = useAuth();
+  const { loading } = useAuth();
 
-  // Allow all routes without authentication check
-  // Users can access everything as guests
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
-          <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">جاري التحميل...</p>
         </div>
       </div>
@@ -92,6 +92,3 @@ function App() {
 }
 
 export default App;
-      {/* App: AI Agent Platform - منصة الوكيل الذكي */}
-import LivePreviewPage from "./pages/LivePreviewPage";
-import VersionControlPage from "./pages/VersionControlPage";
