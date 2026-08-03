@@ -130,6 +130,20 @@ export const AGENTS = {
     descEn: "Saves context and answers about the project",
     color: "fuchsia",
   },
+  reviewer: {
+    id: "reviewer", icon: "🔎",
+    nameAr: "وكيل المراجعة", nameEn: "Review Agent",
+    descAr: "يراجع الكود بالكامل ويكتشف الأخطاء والمشاكل ويصلحها فوراً",
+    descEn: "Reviews all code, finds bugs and issues, and fixes them immediately",
+    color: "amber",
+  },
+  auditor: {
+    id: "auditor", icon: "🛡️",
+    nameAr: "وكيل التدقيق العميق", nameEn: "Deep Audit Agent",
+    descAr: "تدقيق شامل وعميق في كل التفاصيل الصغيرة: أمان، أداء، UX، accessibility، responsive، SEO، clean code",
+    descEn: "Deep comprehensive audit of every small detail: security, performance, UX, accessibility, responsive, SEO, clean code",
+    color: "red",
+  },
 };
 
 // ── Plan Generator ────────────────────────────────────────────────────────────
@@ -350,8 +364,9 @@ agentsRouter.post("/plan", async (req: Request, res: Response) => {
 2. رتّب الخطوات منطقياً (التحليل أولاً، ثم التصميم، ثم البناء)
 3. اختر الوكلاء المناسبين فقط — لا تستخدم كل الوكلاء
 4. لمشروع بسيط: 4-6 خطوات. لمشروع معقد: 8-12 خطوة
-5. أضف دائماً خطوة "tester" في النهاية لمراجعة الكود
-6. أضف "docs" فقط للمشاريع الكبيرة`
+5. أضف دائماً خطوة "reviewer" قبل الأخيرة لمراجعة الكود وإصلاح الأخطاء
+6. أضف دائماً خطوة "auditor" كآخر خطوة للتدقيق العميق في كل التفاصيل
+7. أضف "docs" فقط للمشاريع الكبيرة`
       : `You are a digital project planning expert. Analyze the user's request and create a detailed, customized work plan.
 
 Return ONLY a JSON array with no other text. Each element contains:
@@ -369,8 +384,9 @@ Rules:
 2. Order steps logically (analysis first, then design, then build)
 3. Choose only appropriate agents — don't use all agents
 4. Simple project: 4-6 steps. Complex project: 8-12 steps
-5. Always add a "tester" step at the end to review code
-6. Add "docs" only for large projects`;
+5. Always add a "reviewer" step as second-to-last to review code and fix bugs
+6. Always add an "auditor" step as the LAST step for deep comprehensive audit
+7. Add "docs" only for large projects`;
 
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
@@ -899,6 +915,29 @@ Return optimized code${ctx}`,
 6. Database
 7. How to install and run
 Make summary comprehensive and accurate${ctx}`,
+    reviewer: ar
+      ? `أنت وكيل المراجعة المتخصص. راجع الكود بالكامل وأصلح كل مشكلة.
+1. تحقق من الروابط والأزرار
+2. تحقق من عدم وجود أخطاء JS
+3. تحقق من CSS على كل الأجهزة
+4. أصلح أي خطأ فوراً
+إذا وجدت خطأ: "⚠️ خطأ: [الوصف]" ثم "✅ الإصلاح: [ما فعلته]"
+أرجع الكود المُصحَّح.${ctx}`
+      : `You are the Review Agent. Review ALL code and fix every issue. Check links, buttons, JS errors, CSS, forms. For each bug: "⚠️ Bug: [desc]" then "✅ Fix: [action]". Return corrected code.${ctx}`,
+    auditor: ar
+      ? `أنت وكيل التدقيق العميق — أقوى وكيل. لا تتسامح مع أي خلل.
+دقّق في:
+🔐 الأمان: XSS, SQL Injection, CSRF
+⚡ الأداء: حجم الملفات, render blocking
+🎨 UX: أزرار 44px, تباين WCAG AA, loading/empty/error states
+♿ Accessibility: alt text, aria-labels, keyboard nav
+📱 Responsive: يعمل على 320px, لا overflow
+🧹 Clean Code: لا تكرار, تسمية واضحة
+لكل مشكلة: "🔴 حرجة" / "🟡 تحسين" / "🟢 ملاحظة"
+أرجع الكود المدقق. تقييم من 10.${ctx}`
+      : `You are the Deep Audit Agent — most powerful. Tolerate ZERO defects.
+Audit: Security (XSS/CSRF/SQLi), Performance, UX (44px buttons, WCAG AA), Accessibility, Responsive (320px), Clean Code.
+For each: "🔴 Critical" / "🟡 Improvement" / "🟢 Note". Return audited code. Score /10.${ctx}`,
   };
 
   return prompts[agentId] || prompts.frontend;

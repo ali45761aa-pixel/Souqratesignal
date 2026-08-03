@@ -23,6 +23,7 @@ interface PlanStep {
   descEn: string;
   estimatedTime: string;
   status: "pending" | "running" | "done" | "error";
+  errorMessage?: string;
   output?: string;
   files?: { name: string; content: string; language: string }[];
   expanded: boolean;
@@ -68,6 +69,8 @@ const AGENT_ICONS: Record<string, React.ReactNode> = {
   deployer: <Rocket className="w-4 h-4" />,
   optimizer: <RefreshCw className="w-4 h-4" />,
   memory: <Brain className="w-4 h-4" />,
+  reviewer: <Search className="w-4 h-4" />,
+  auditor: <Shield className="w-4 h-4" />,
 };
 
 const AGENT_COLORS: Record<string, string> = {
@@ -89,6 +92,8 @@ const AGENT_COLORS: Record<string, string> = {
   deployer: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
   optimizer: "text-rose-400 bg-rose-500/10 border-rose-500/20",
   memory: "text-fuchsia-400 bg-fuchsia-500/10 border-fuchsia-500/20",
+  reviewer: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+  auditor: "text-red-400 bg-red-500/10 border-red-500/20",
 };
 
 // ── Main Component ─────────────────────────────────────────────────────────────
@@ -274,7 +279,7 @@ export default function AgentBuilderPage() {
           } catch {}
         }
       }
-    } catch { setPlan(prev => prev.map((s, j) => j === stepIndex ? { ...s, status: "error" } : s)); }
+    } catch (err: any) { setPlan(prev => prev.map((s, j) => j === stepIndex ? { ...s, status: "error", errorMessage: err?.message || "حدث خطأ غير متوقع" } : s)); }
   }, [plan, prompt, lang]);
 
   // ── Q&A about project ────────────────────────────────────────────────────────
@@ -526,7 +531,7 @@ export default function AgentBuilderPage() {
                       )}
                       {step.status === "running" && <Loader2 className="w-7 h-7 animate-spin text-primary" />}
                       {step.status === "done" && <CheckCircle2 className="w-7 h-7 text-green-400" />}
-                      {step.status === "error" && <AlertCircle className="w-7 h-7 text-red-400" />}
+                      {step.status === "error" && <AlertCircle className="w-7 h-7 text-red-400 animate-pulse" />}
                     </div>
 
                     {/* Agent Badge */}
@@ -559,7 +564,7 @@ export default function AgentBuilderPage() {
                         <span className="text-xs text-green-400/70">{step.files.length} {lang === "ar" ? "ملف" : "files"}</span>
                       )}
                       {step.status === "running" && step.streamingText && (
-                        <span className="text-xs text-primary/70">{step.streamingText.length} chars</span>
+                        <span className="text-xs text-primary/70 font-mono">{Math.min(99, Math.round(step.streamingText.length / 50))}%</span>
                       )}
                       {step.status === "running" && step.isThinking && (
                         <span className="text-xs text-violet-400/80 flex items-center gap-1">
@@ -577,6 +582,24 @@ export default function AgentBuilderPage() {
                   {/* Step Content (Accordion) */}
                   {step.expanded && (
                     <div className="px-4 pb-4 border-t border-border/50 mt-0">
+                      {/* Error Message Display */}
+                      {step.status === "error" && (
+                        <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/5 p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <AlertCircle className="w-5 h-5 text-red-400" />
+                            <span className="text-sm font-bold text-red-400">{lang === "ar" ? "حدث خطأ" : "Error Occurred"}</span>
+                          </div>
+                          <p className="text-sm text-red-300/80 leading-relaxed">
+                            {step.errorMessage || (lang === "ar" ? "خطأ غير متوقع. حاول مرة أخرى." : "Unexpected error. Try again.")}
+                          </p>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleExecuteStep(plan.indexOf(step)); }}
+                            className="mt-3 text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-all"
+                          >
+                            {lang === "ar" ? "🔄 إعادة المحاولة" : "🔄 Retry"}
+                          </button>
+                        </div>
+                      )}
                       {step.status === "running" && step.streamingText && (
                         <div className="mt-3 bg-gray-950 rounded-xl p-3 max-h-64 overflow-auto">
                           <pre className="text-green-300 text-xs font-mono whitespace-pre-wrap leading-relaxed">
