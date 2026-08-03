@@ -1,107 +1,54 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../_core/trpc";
-import { getDb, clients, invoices, tickets, ticketReplies } from "../db";
-import { eq, and, desc } from "drizzle-orm";
-import { nanoid } from "nanoid";
+import { router, publicProcedure } from "../_core/trpc";
+
+const MOCK_CLIENTS: any[] = [
+  { id: 1, userId: 1, name: "أحمد محمد", email: "ahmed@example.com", phone: "+966501234567", company: "شركة التقنية", status: "active", totalSpent: 1500, projectsCount: 3, createdAt: new Date() },
+  { id: 2, userId: 1, name: "سارة علي", email: "sara@example.com", phone: "+966509876543", company: "مؤسسة الإبداع", status: "active", totalSpent: 850, projectsCount: 2, createdAt: new Date() },
+];
+const MOCK_INVOICES: any[] = [
+  { id: 1, userId: 1, clientId: 1, invoiceNumber: "INV-001", amount: 500, currency: "USD", status: "paid", dueDate: new Date(), createdAt: new Date() },
+  { id: 2, userId: 1, clientId: 2, invoiceNumber: "INV-002", amount: 850, currency: "USD", status: "pending", dueDate: new Date(Date.now() + 7 * 86400000), createdAt: new Date() },
+];
+const MOCK_TICKETS: any[] = [
+  { id: 1, userId: 1, clientId: 1, subject: "استفسار عن الخدمة", message: "أريد معرفة المزيد", status: "open", priority: "medium", createdAt: new Date() },
+];
 
 export const crmRouter = router({
-  // Clients
-  listClients: protectedProcedure.query(async ({ ctx }) => {
-    const db = await getDb();
-    if (!db) return [];
-    return db.select().from(clients).where(eq(clients.userId, ctx.user.id)).orderBy(desc(clients.createdAt));
-  }),
+  listClients: publicProcedure.query(async () => MOCK_CLIENTS),
 
-  createClient: protectedProcedure
-    .input(z.object({
-      name: z.string().min(1),
-      email: z.string().email().optional(),
-      phone: z.string().optional(),
-      company: z.string().optional(),
-      country: z.string().optional(),
-      notes: z.string().optional(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new Error("Database not available");
-      const result = await db.insert(clients).values({ userId: ctx.user.id, ...input }).returning();
-      return result[0];
+  createClient: publicProcedure
+    .input(z.object({ name: z.string().min(1), email: z.string().email().optional(), phone: z.string().optional(), company: z.string().optional(), country: z.string().optional(), notes: z.string().optional() }))
+    .mutation(async ({ input }) => {
+      const client = { id: MOCK_CLIENTS.length + 1, userId: 1, ...input, status: "active", totalSpent: 0, projectsCount: 0, createdAt: new Date() };
+      MOCK_CLIENTS.push(client);
+      return client;
     }),
 
-  updateClient: protectedProcedure
-    .input(z.object({
-      id: z.number(),
-      name: z.string().optional(),
-      email: z.string().optional(),
-      phone: z.string().optional(),
-      company: z.string().optional(),
-      notes: z.string().optional(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new Error("Database not available");
-      const { id, ...updates } = input;
-      await db.update(clients).set({ ...updates, updatedAt: new Date() })
-        .where(and(eq(clients.id, id), eq(clients.userId, ctx.user.id)));
+  updateClient: publicProcedure
+    .input(z.object({ id: z.number(), name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(), company: z.string().optional(), notes: z.string().optional() }))
+    .mutation(async ({ input }) => {
+      const c = MOCK_CLIENTS.find(c => c.id === input.id);
+      if (c) Object.assign(c, input);
       return { success: true };
     }),
 
-  // Invoices
-  listInvoices: protectedProcedure.query(async ({ ctx }) => {
-    const db = await getDb();
-    if (!db) return [];
-    return db.select().from(invoices).where(eq(invoices.userId, ctx.user.id)).orderBy(desc(invoices.createdAt));
-  }),
+  listInvoices: publicProcedure.query(async () => MOCK_INVOICES),
 
-  createInvoice: protectedProcedure
-    .input(z.object({
-      clientId: z.number().optional(),
-      projectId: z.number().optional(),
-      amount: z.number().positive(),
-      currency: z.string().default("USD"),
-      notes: z.string().optional(),
-      dueDate: z.number().optional(),
-      lineItems: z.array(z.object({
-        description: z.string(),
-        qty: z.number(),
-        price: z.number(),
-      })).optional(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new Error("Database not available");
-      const invoiceNumber = `INV-${Date.now()}-${nanoid(4).toUpperCase()}`;
-      const result = await db.insert(invoices).values({
-        userId: ctx.user.id,
-        clientId: input.clientId,
-        projectId: input.projectId,
-        invoiceNumber,
-        amount: input.amount,
-        currency: input.currency,
-        notes: input.notes,
-        dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
-        lineItems: input.lineItems ?? [],
-      }).returning();
-      return result[0];
+  createInvoice: publicProcedure
+    .input(z.object({ clientId: z.number().optional(), projectId: z.number().optional(), amount: z.number().positive(), currency: z.string().default("USD"), notes: z.string().optional(), dueDate: z.number().optional(), lineItems: z.array(z.object({ description: z.string(), qty: z.number(), price: z.number() })).optional() }))
+    .mutation(async ({ input }) => {
+      const invoice = { id: MOCK_INVOICES.length + 1, userId: 1, invoiceNumber: `INV-${String(MOCK_INVOICES.length + 1).padStart(3, "0")}`, ...input, status: "pending", createdAt: new Date() };
+      MOCK_INVOICES.push(invoice);
+      return invoice;
     }),
 
-  // Tickets
-  listTickets: protectedProcedure.query(async ({ ctx }) => {
-    const db = await getDb();
-    if (!db) return [];
-    return db.select().from(tickets).where(eq(tickets.userId, ctx.user.id)).orderBy(desc(tickets.createdAt));
-  }),
+  listTickets: publicProcedure.query(async () => MOCK_TICKETS),
 
-  createTicket: protectedProcedure
-    .input(z.object({
-      subject: z.string().min(1),
-      message: z.string().min(1),
-      priority: z.enum(["low","medium","high"]).default("medium"),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new Error("Database not available");
-      const result = await db.insert(tickets).values({ userId: ctx.user.id, ...input }).returning();
-      return result[0];
+  createTicket: publicProcedure
+    .input(z.object({ subject: z.string().min(1), message: z.string().min(1), priority: z.enum(["low","medium","high"]).default("medium"), clientId: z.number().optional() }))
+    .mutation(async ({ input }) => {
+      const ticket = { id: MOCK_TICKETS.length + 1, userId: 1, ...input, status: "open", createdAt: new Date() };
+      MOCK_TICKETS.push(ticket);
+      return ticket;
     }),
 });

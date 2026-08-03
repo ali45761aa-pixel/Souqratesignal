@@ -233,7 +233,7 @@ export default function PaymentsPage() {
                   />
                 </div>
                 <Button
-                  onClick={() => createInvoice.mutate({ amount: parseFloat(amount), currency: selectedCrypto as any })}
+                  onClick={() => createInvoice.mutate({ amount: parseFloat(amount), currency: "USD", cryptoCurrency: selectedCrypto })}
                   disabled={!amount || parseFloat(amount) <= 0 || createInvoice.isPending}
                   className="w-full gradient-primary text-white gap-2"
                 >

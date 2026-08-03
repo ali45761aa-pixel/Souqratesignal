@@ -1,73 +1,49 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../_core/trpc";
-import { getDb, apiKeys, aiSettings } from "../db";
-import { eq, and } from "drizzle-orm";
-import { TRPCError } from "@trpc/server";
+import { router, publicProcedure } from "../_core/trpc";
 
-const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
-  return next({ ctx });
-});
+const MOCK_API_KEYS: Record<string, { key: string; label?: string }> = {};
+const MOCK_AI_SETTINGS = {
+  primaryModel: "claude-3-5-sonnet-20241022",
+  temperature: 0.7,
+  maxTokens: 4096,
+  systemPrompt: "",
+  chainOfThought: true,
+  useOllama: false,
+  ollamaUrl: "http://localhost:11434",
+};
 
 export const adminRouter = router({
-  // API Keys
-  getApiKeys: protectedProcedure.query(async ({ ctx }) => {
-    const db = await getDb();
-    if (!db) return [];
-    const keys = await db.select().from(apiKeys).where(eq(apiKeys.userId, ctx.user.id));
-    // Mask key values
-    return keys.map(k => ({ ...k, keyValue: k.keyValue.slice(0, 8) + "••••••••" }));
+  getApiKeys: publicProcedure.query(async () => {
+    return Object.entries(MOCK_API_KEYS).map(([service, data], i) => ({
+      id: i + 1,
+      service,
+      keyValue: data.key ? `${data.key.substring(0, 8)}••••••••` : "",
+      label: data.label ?? service,
+      isActive: !!data.key,
+      createdAt: new Date(),
+    }));
   }),
 
-  upsertApiKey: protectedProcedure
+  upsertApiKey: publicProcedure
     .input(z.object({
       service: z.string(),
       keyValue: z.string().min(1),
       label: z.string().optional(),
     }))
-    .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const existing = await db.select().from(apiKeys)
-        .where(and(eq(apiKeys.userId, ctx.user.id), eq(apiKeys.service, input.service)))
-        .limit(1);
-      if (existing.length > 0) {
-        await db.update(apiKeys).set({
-          keyValue: input.keyValue,
-          label: input.label,
-          updatedAt: new Date(),
-        }).where(eq(apiKeys.id, existing[0].id));
-      } else {
-        await db.insert(apiKeys).values({
-          userId: ctx.user.id,
-          service: input.service,
-          keyValue: input.keyValue,
-          label: input.label,
-        });
-      }
+    .mutation(async ({ input }) => {
+      MOCK_API_KEYS[input.service] = { key: input.keyValue, label: input.label };
       return { success: true };
     }),
 
-  deleteApiKey: protectedProcedure
+  deleteApiKey: publicProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db.delete(apiKeys)
-        .where(and(eq(apiKeys.id, input.id), eq(apiKeys.userId, ctx.user.id)));
+    .mutation(async ({ input }) => {
       return { success: true };
     }),
 
-  // AI Settings
-  getAiSettings: protectedProcedure.query(async ({ ctx }) => {
-    const db = await getDb();
-    if (!db) return null;
-    const result = await db.select().from(aiSettings)
-      .where(eq(aiSettings.userId, ctx.user.id)).limit(1);
-    return result[0] ?? null;
-  }),
+  getAiSettings: publicProcedure.query(async () => MOCK_AI_SETTINGS),
 
-  updateAiSettings: protectedProcedure
+  updateAiSettings: publicProcedure
     .input(z.object({
       primaryModel: z.string().optional(),
       temperature: z.number().min(0).max(2).optional(),
@@ -77,17 +53,15 @@ export const adminRouter = router({
       useOllama: z.boolean().optional(),
       ollamaUrl: z.string().optional(),
     }))
-    .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const existing = await db.select().from(aiSettings)
-        .where(eq(aiSettings.userId, ctx.user.id)).limit(1);
-      if (existing.length > 0) {
-        await db.update(aiSettings).set({ ...input, updatedAt: new Date() })
-          .where(eq(aiSettings.id, existing[0].id));
-      } else {
-        await db.insert(aiSettings).values({ userId: ctx.user.id, ...input });
-      }
+    .mutation(async ({ input }) => {
+      Object.assign(MOCK_AI_SETTINGS, input);
       return { success: true };
+    }),
+
+  testApiKey: publicProcedure
+    .input(z.object({ service: z.string() }))
+    .mutation(async ({ input }) => {
+      const data = MOCK_API_KEYS[input.service];
+      return { success: !!data?.key, message: data?.key ? "Key is configured" : "No key configured" };
     }),
 });

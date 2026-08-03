@@ -271,7 +271,7 @@ export default function DashboardPage() {
                         project.status === "completed" ? "default" :
                         project.status === "failed" ? "destructive" : "secondary"
                       } className="text-xs shrink-0">
-                        {tr.status[project.status]}
+                        {(tr.status as any)[project.status] ?? project.status}
                       </Badge>
                     </div>
                   </Link>

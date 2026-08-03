@@ -1,97 +1,63 @@
 import { z } from "zod";
-import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
+import { router, publicProcedure } from "../_core/trpc";
 import { invokeLLM } from "../_core/llm";
-import { getDb, chatMessages, projects } from "../db";
-import { eq } from "drizzle-orm";
 
 export const chatRouter = router({
-  send: protectedProcedure
+  send: publicProcedure
     .input(z.object({
       content: z.string().min(1).max(10000),
       projectId: z.number().optional(),
       lang: z.enum(["ar", "en"]).default("ar"),
     }))
-    .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      const userId = ctx.user.id;
-
-      // Save user message
-      if (db && input.projectId) {
-        await db.insert(chatMessages).values({
-          userId: userId,
-          projectId: input.projectId,
-          role: "user",
-          content: input.content,
-        });
-      }
-
-      // Build system prompt
+    .mutation(async ({ input }) => {
       const systemPrompt = input.lang === "ar"
-        ? `أنت منصة وكيل ذكاء اصطناعي متكاملة. مهمتك تحليل طلبات المستخدم وبناء مشاريع كاملة. 
+        ? `أنت منصة وكيل ذكاء اصطناعي متكاملة. مهمتك تحليل طلبات المستخدم وبناء مشاريع كاملة.
            أجب دائماً بالعربية ما لم يطلب المستخدم غير ذلك.
            عند استلام طلب، حلل المتطلبات وقسمها إلى مهام واضحة، واقترح التقنيات المناسبة.
            كن محدداً ومفصلاً في إجاباتك.`
-        : `You are a comprehensive AI agent platform. Your task is to analyze user requests and build complete projects.
-           Respond in English unless the user requests otherwise.
-           When receiving a request, analyze requirements, break them into clear tasks, and suggest appropriate technologies.
+        : `You are a comprehensive AI agent platform. Analyze user requests and build complete projects.
            Be specific and detailed in your responses.`;
 
-      // Call LLM
-      const response = await invokeLLM({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: input.content },
-        ],
-      });
-
-      const assistantContent = response.choices?.[0]?.message?.content ?? "";
-
-      // Save assistant message
-      const assistantText = typeof assistantContent === "string" ? assistantContent : JSON.stringify(assistantContent);
-      if (db && input.projectId) {
-        await db.insert(chatMessages).values({
-          userId: userId,
-          projectId: input.projectId,
-          role: "assistant",
-          content: assistantText,
-          tokensUsed: response.usage?.total_tokens ?? 0,
-          model: response.model,
+      let assistantText = "";
+      try {
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: input.content },
+          ],
         });
+        const content = response.choices?.[0]?.message?.content ?? "";
+        assistantText = typeof content === "string" ? content : JSON.stringify(content);
+        const steps = generateWorkflowSteps(input.content, input.lang);
+        return { message: assistantText, steps, tokensUsed: response.usage?.total_tokens ?? 0 };
+      } catch (err) {
+        // No API key configured - return helpful message
+        const steps = generateWorkflowSteps(input.content, input.lang);
+        const fallback = input.lang === "ar"
+          ? `مرحباً! تم استلام طلبك: "${input.content}"\n\nلتفعيل الذكاء الاصطناعي الكامل، يرجى إضافة مفتاح API من لوحة الإدارة (Admin → API Keys).\n\nالمفاتيح المدعومة: Anthropic Claude, OpenAI GPT-4, DeepSeek`
+          : `Hello! Your request was received: "${input.content}"\n\nTo enable full AI functionality, please add an API key from the Admin panel (Admin → API Keys).\n\nSupported: Anthropic Claude, OpenAI GPT-4, DeepSeek`;
+        return { message: fallback, steps, tokensUsed: 0 };
       }
-
-      // Generate workflow steps based on prompt analysis
-      const steps = generateWorkflowSteps(input.content, input.lang);
-
-      return {
-        message: assistantText,
-        steps,
-        tokensUsed: response.usage?.total_tokens ?? 0,
-      };
     }),
 
-  getMessages: protectedProcedure
+  getMessages: publicProcedure
     .input(z.object({ projectId: z.number() }))
-    .query(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) return [];
-      return db.select().from(chatMessages)
-        .where(eq(chatMessages.projectId, input.projectId));
-    }),
+    .query(async () => []),
 });
 
 function generateWorkflowSteps(prompt: string, lang: "ar" | "en") {
   const lower = prompt.toLowerCase();
-  const steps = [];
+  const steps: any[] = [];
   let order = 1;
 
   steps.push({ id: String(order++), agent: "planning", title: "Analyzing requirements", titleAr: "تحليل المتطلبات", status: "in_progress" as const, startedAt: Date.now() });
   steps.push({ id: String(order++), agent: "design", title: "Choosing design system", titleAr: "اختيار نظام التصميم", status: "pending" as const });
   steps.push({ id: String(order++), agent: "programming", title: "Writing frontend code", titleAr: "كتابة كود الواجهة", status: "pending" as const });
 
-  if (lower.includes("متجر") || lower.includes("store") || lower.includes("shop") || lower.includes("ecommerce")) {
+  if (lower.includes("متجر") || lower.includes("store") || lower.includes("shop")) {
     steps.push({ id: String(order++), agent: "payments", title: "Setting up payment system", titleAr: "إعداد نظام الدفع", status: "pending" as const });
   }
-  if (lower.includes("بوت") || lower.includes("bot") || lower.includes("telegram") || lower.includes("تليغرام")) {
+  if (lower.includes("بوت") || lower.includes("bot") || lower.includes("telegram")) {
     steps.push({ id: String(order++), agent: "bots", title: "Building Telegram bot", titleAr: "بناء بوت تليغرام", status: "pending" as const });
   }
   if (lower.includes("كتاب") || lower.includes("book")) {

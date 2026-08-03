@@ -113,7 +113,7 @@ export default function ProjectsPage() {
                     project.status === "failed" ? "destructive" :
                     project.status === "paused" ? "outline" : "secondary"
                   } className="text-xs shrink-0">
-                    {tr.status[project.status]}
+                    {(tr.status as any)[project.status] ?? project.status}
                   </Badge>
                 </div>
 
