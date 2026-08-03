@@ -179,7 +179,8 @@ export default function AgentBuilderPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt, stepId: step.id, agentId: step.agentId,
-            lang, projectContext: projectContext.slice(0, 3000),
+            lang, projectContext: projectContext.slice(0, 5000),
+            previousFiles: allFiles.slice(-5).map(f => ({ name: f.name, content: f.content.slice(0, 2000) })),
           }),
           signal: abortRef.current.signal,
         });

@@ -320,13 +320,128 @@ function generatePlan(prompt: string, lang: string): {
 agentsRouter.post("/plan", async (req: Request, res: Response) => {
   const { prompt, lang = "ar" } = req.body;
   if (!prompt) { res.status(400).json({ error: "prompt required" }); return; }
-  const plan = generatePlan(prompt, lang);
-  res.json({ plan, totalSteps: plan.length });
+
+  const key = process.env.DEEPSEEK_API_KEY;
+  if (!key) {
+    // Fallback to static plan if no API key
+    const plan = generatePlan(prompt, lang);
+    res.json({ plan, totalSteps: plan.length });
+    return;
+  }
+
+  // LLM-powered dynamic plan generation
+  try {
+    const isAr = lang === "ar";
+    const systemPrompt = isAr
+      ? `أنت خبير تخطيط مشاريع رقمية. مهمتك تحليل طلب المستخدم وإنشاء خطة عمل مفصّلة ومخصصة.
+
+أرجع JSON array فقط بدون أي نص آخر. كل عنصر يحتوي:
+- id: معرف فريد (step-1, step-2, ...)
+- agentId: أحد الوكلاء التالية فقط: analyzer, designer, frontend, backend, database, security, content, bot, game, payment, analytics, seo, mobile, tester, docs, deployer, optimizer, memory
+- titleAr: عنوان الخطوة بالعربية (قصير ومحدد)
+- titleEn: عنوان الخطوة بالإنجليزية
+- descAr: وصف تفصيلي لما سيفعله الوكيل (جملتان على الأقل)
+- descEn: الوصف بالإنجليزية
+- estimatedTime: الوقت التقديري (مثل "10s", "25s")
+- dependencies: array من الـ ids التي يعتمد عليها (مثل ["step-1"])
+
+قواعد:
+1. حلّل المتطلبات بدقة — لا تضف خطوات غير ضرورية
+2. رتّب الخطوات منطقياً (التحليل أولاً، ثم التصميم، ثم البناء)
+3. اختر الوكلاء المناسبين فقط — لا تستخدم كل الوكلاء
+4. لمشروع بسيط: 4-6 خطوات. لمشروع معقد: 8-12 خطوة
+5. أضف دائماً خطوة "tester" في النهاية لمراجعة الكود
+6. أضف "docs" فقط للمشاريع الكبيرة`
+      : `You are a digital project planning expert. Analyze the user's request and create a detailed, customized work plan.
+
+Return ONLY a JSON array with no other text. Each element contains:
+- id: unique identifier (step-1, step-2, ...)
+- agentId: one of: analyzer, designer, frontend, backend, database, security, content, bot, game, payment, analytics, seo, mobile, tester, docs, deployer, optimizer, memory
+- titleAr: step title in Arabic (short and specific)
+- titleEn: step title in English
+- descAr: detailed description of what the agent will do (at least 2 sentences)
+- descEn: description in English
+- estimatedTime: estimated time (like "10s", "25s")
+- dependencies: array of ids this step depends on (like ["step-1"])
+
+Rules:
+1. Analyze requirements precisely — don't add unnecessary steps
+2. Order steps logically (analysis first, then design, then build)
+3. Choose only appropriate agents — don't use all agents
+4. Simple project: 4-6 steps. Complex project: 8-12 steps
+5. Always add a "tester" step at the end to review code
+6. Add "docs" only for large projects`;
+
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
+        max_tokens: 3000,
+        temperature: 0.4,
+        response_format: { type: "json_object" },
+      }),
+    });
+
+    if (!response.ok) {
+      // Fallback to static
+      const plan = generatePlan(prompt, lang);
+      res.json({ plan, totalSteps: plan.length });
+      return;
+    }
+
+    const data = await response.json() as any;
+    const content = data.choices?.[0]?.message?.content || "";
+
+    // Parse LLM response
+    let llmPlan: any[];
+    try {
+      const parsed = JSON.parse(content);
+      llmPlan = Array.isArray(parsed) ? parsed : parsed.plan || parsed.steps || [];
+    } catch {
+      // Try to extract array from content
+      const match = content.match(/\[[\s\S]*\]/);
+      if (match) { llmPlan = JSON.parse(match[0]); }
+      else { llmPlan = []; }
+    }
+
+    if (llmPlan.length === 0) {
+      // Fallback
+      const plan = generatePlan(prompt, lang);
+      res.json({ plan, totalSteps: plan.length });
+      return;
+    }
+
+    // Validate and normalize
+    const validAgents = Object.keys(AGENTS);
+    const plan = llmPlan
+      .filter((s: any) => s.agentId && validAgents.includes(s.agentId))
+      .map((s: any, i: number) => ({
+        id: s.id || `step-${i + 1}`,
+        agentId: s.agentId,
+        titleAr: s.titleAr || s.title || `خطوة ${i + 1}`,
+        titleEn: s.titleEn || s.title || `Step ${i + 1}`,
+        descAr: s.descAr || s.description || "",
+        descEn: s.descEn || s.description || "",
+        estimatedTime: s.estimatedTime || "10s",
+        dependencies: s.dependencies || [],
+      }));
+
+    res.json({ plan, totalSteps: plan.length, dynamic: true });
+  } catch (err: any) {
+    // Fallback to static plan on any error
+    const plan = generatePlan(prompt, lang);
+    res.json({ plan, totalSteps: plan.length });
+  }
 });
 
 // ── Execute single agent step with streaming ─────────────────────────────────
 agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
-  const { prompt, stepId, agentId, lang = "ar", projectContext = "", conversationHistory = [] } = req.body;
+  const { prompt, stepId, agentId, lang = "ar", projectContext = "", conversationHistory = [], previousFiles = [] } = req.body;
   if (!prompt || !agentId) { res.status(400).json({ error: "prompt and agentId required" }); return; }
 
   const key = process.env.DEEPSEEK_API_KEY;
@@ -335,7 +450,16 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
   const agent = AGENTS[agentId as keyof typeof AGENTS];
   if (!agent) { res.status(400).json({ error: "Unknown agent" }); return; }
 
-  const systemPrompt = buildAgentPrompt(agentId, prompt, lang, projectContext);
+  // Build rich context from previous files
+  let richContext = projectContext;
+  if (previousFiles && previousFiles.length > 0) {
+    richContext += "\n\n=== الملفات المبنية حتى الآن ===\n";
+    for (const file of previousFiles.slice(-5)) {
+      richContext += `\n--- ${file.name} ---\n${file.content.slice(0, 2000)}\n`;
+    }
+  }
+
+  const systemPrompt = buildAgentPrompt(agentId, prompt, lang, richContext);
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
