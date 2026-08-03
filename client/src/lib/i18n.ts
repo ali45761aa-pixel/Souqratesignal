@@ -20,7 +20,9 @@ export const translations = {
       apiKeys: "مفاتيح API",
       aiSettings: "إعدادات الذكاء الاصطناعي",
       statistics: "الإحصائيات",
-      prompts: "مكتبة البرومبتات",
+  prompts: "مكتبة البرومبتات",
+    preview: "معاينة مباشرة",
+    versions: "التحكم بالإصدارات",
       logout: "تسجيل الخروج",
     },
     // Chat
@@ -191,7 +193,9 @@ export const translations = {
       apiKeys: "API Keys",
       aiSettings: "AI Settings",
       statistics: "Statistics",
-      prompts: "Prompt Library",
+  prompts: "Prompt Library",
+    preview: "Live Preview",
+    versions: "Version Control",
       logout: "Logout",
     },
     chat: {

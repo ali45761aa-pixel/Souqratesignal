@@ -11,7 +11,7 @@ import {
   Sparkles, LayoutDashboard, FolderOpen, Users, CreditCard,
   FileText, Ticket, Settings, Key, Brain, Layers, Puzzle,
   BookOpen, Bell, ChevronLeft, ChevronRight, Globe, Moon, Sun,
-  Menu, X, LogOut, BarChart3, MessageSquare, Zap
+  Menu, X, LogOut, BarChart3, MessageSquare, Zap, Code2, GitBranch
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -44,7 +44,9 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     // Build
     { icon: <Layers className="w-4 h-4" />, labelKey: "templates", href: "/templates", section: "build" },
     { icon: <Puzzle className="w-4 h-4" />, labelKey: "plugins", href: "/plugins", section: "build" },
-    { icon: <BookOpen className="w-4 h-4" />, labelKey: "prompts", href: "/prompts", section: "build" },
+  { icon: <BookOpen className="w-4 h-4" />, labelKey: "prompts", href: "/prompts", section: "build" },
+    { icon: <Code2 className="w-4 h-4" />, labelKey: "preview", href: "/preview", section: "build" },
+    { icon: <GitBranch className="w-4 h-4" />, labelKey: "versions", href: "/versions", section: "build" },
     // Business
     { icon: <Users className="w-4 h-4" />, labelKey: "clients", href: "/crm", section: "business" },
     { icon: <CreditCard className="w-4 h-4" />, labelKey: "payments", href: "/payments", section: "business" },

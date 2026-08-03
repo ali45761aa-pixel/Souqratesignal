@@ -70,11 +70,16 @@
 - [x] docker-compose.yml with PostgreSQL + Redis + Nginx
 - [x] Landing page with RTL Arabic design
 
+## Phase 7 Additions
+- [x] Monaco Editor integration (syntax highlighting + autocomplete)
+- [x] Live Preview panel (iframe with Desktop/Tablet/Mobile views)
+- [x] Visual Version Control (diff view + undo/redo + timeline)
+- [x] Cron Jobs registered in server startup (wallet monitor + report generator)
+- [x] Health check endpoint /api/health
+- [x] README.md with full documentation
+
 ## Pending / Future Enhancements
-- [ ] Monaco Editor integration (code editor with syntax highlighting)
-- [ ] Live Preview panel (iframe with Desktop/Tablet/Mobile views)
 - [ ] LLM Streaming (SSE for real-time responses)
-- [ ] Visual Version Control (diff view + undo/redo)
 - [ ] PDF invoice generation
 - [ ] EPUB/PDF book export
 - [ ] Website audit (SEO, performance, security)

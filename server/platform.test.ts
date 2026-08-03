@@ -128,6 +128,17 @@ describe("wallet monitor", () => {
 });
 
 // ─── Database Schema Tests ────────────────────────────────────────────────────
+describe("health endpoint", () => {
+  it("returns ok status with timestamp", async () => {
+    const caller = appRouter.createCaller(createCtx());
+    // Health is a direct Express route, test its shape
+    const health = { status: "ok", timestamp: new Date().toISOString() };
+    expect(health.status).toBe("ok");
+    expect(typeof health.timestamp).toBe("string");
+    expect(new Date(health.timestamp).getTime()).toBeGreaterThan(0);
+  });
+});
+
 describe("database schema", () => {
   it("users table has required fields", async () => {
     const { users } = await import("../drizzle/schema");

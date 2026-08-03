@@ -20,7 +20,7 @@ import Home from "./pages/Home";
 const PLATFORM_ROUTES = [
   "/chat", "/dashboard", "/projects", "/admin", "/templates",
   "/crm", "/payments", "/invoices", "/tickets", "/settings",
-  "/plugins", "/prompts", "/stats",
+  "/plugins", "/prompts", "/stats", "/preview", "/versions",
 ];
 
 function Router() {
@@ -39,6 +39,8 @@ function Router() {
           <Route path="/crm" component={CRMPage} />
           <Route path="/payments" component={PaymentsPage} />
           <Route path="/settings" component={SettingsPage} />
+          <Route path="/preview" component={LivePreviewPage} />
+          <Route path="/versions" component={VersionControlPage} />
           <Route path="/invoices" component={() => <CRMPage />} />
           <Route path="/tickets" component={() => <CRMPage />} />
           <Route path="/plugins" component={() => <TemplatesPage />} />
@@ -76,3 +78,5 @@ function App() {
 
 export default App;
       {/* App: AI Agent Platform - منصة الوكيل الذكي */}
+import LivePreviewPage from "./pages/LivePreviewPage";
+import VersionControlPage from "./pages/VersionControlPage";
