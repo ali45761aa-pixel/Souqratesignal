@@ -29,19 +29,7 @@ const PLATFORM_ROUTES = [
 function Router() {
   const [location] = useLocation();
   const isPlatformRoute = PLATFORM_ROUTES.some(r => location.startsWith(r));
-  const { loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">جاري التحميل...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // No auth check needed - platform is open to all users
   if (isPlatformRoute) {
     return (
       <PlatformLayout>
