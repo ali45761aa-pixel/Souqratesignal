@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLang } from "@/contexts/LangContext";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
@@ -48,8 +48,27 @@ export default function BuilderPage() {
   const [buildSteps, setBuildSteps] = useState<{ label: string; labelAr: string; status: "pending"|"active"|"done" }[]>([]);
   const [copied, setCopied] = useState(false);
   const [improveInput, setImproveInput] = useState("");
+  const [pendingAutoPrompt, setPendingAutoPrompt] = useState("");
   const [isImproving, setIsImproving] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-load prompt from Home page
+  useEffect(() => {
+    const pending = sessionStorage.getItem("pendingPrompt");
+    if (pending) {
+      sessionStorage.removeItem("pendingPrompt");
+      setPrompt(pending);
+    }
+  }, []);
+
+  // Auto-load prompt from Home page
+  useEffect(() => {
+    const pending = sessionStorage.getItem("pendingPrompt");
+    if (pending) {
+      sessionStorage.removeItem("pendingPrompt");
+      setPrompt(pending);
+    }
+  }, []);
 
   const buildMutation = trpc.builder.build.useMutation({
     onSuccess: (data) => {
