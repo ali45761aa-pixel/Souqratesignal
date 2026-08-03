@@ -511,9 +511,12 @@ export default function AgentBuilderPage() {
                   )}
                 >
                   {/* Step Header */}
-                  <button
-                    className="w-full flex items-center gap-3 px-4 py-3 text-start"
+                  <div
+                    className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
                     onClick={() => setPlan(prev => prev.map((s, j) => j === i ? { ...s, expanded: !s.expanded } : s))}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") setPlan(prev => prev.map((s, j) => j === i ? { ...s, expanded: !s.expanded } : s)); }}
                   >
                     {/* Status Icon */}
                     <div className="shrink-0">
@@ -568,7 +571,7 @@ export default function AgentBuilderPage() {
                       )}
                       {step.expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                     </div>
-                  </button>
+                  </div>
 
                   {/* Step Content (Accordion) */}
                   {step.expanded && (
