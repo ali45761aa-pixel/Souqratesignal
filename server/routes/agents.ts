@@ -350,10 +350,17 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
       { role: "user", content: `المشروع: ${prompt}\n\nنفّذ مهمتك كـ ${lang === "ar" ? agent.nameAr : agent.nameEn}` },
     ];
 
+    // Use reasoner model for analysis/design agents, chat for code agents
+    const useReasoner = ["analyzer", "designer", "security", "tester", "optimizer"].includes(agentId);
+    const model = useReasoner ? "deepseek-reasoner" : "deepseek-chat";
+
+    // Send thinking start event
+    res.write(`data: ${JSON.stringify({ type: "thinking_start", model })}\n\n`);
+
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-      body: JSON.stringify({ model: "deepseek-chat", messages, max_tokens: 6000, temperature: 0.7, stream: true }),
+      body: JSON.stringify({ model, messages, max_tokens: useReasoner ? 8000 : 6000, temperature: useReasoner ? 0.6 : 0.7, stream: true }),
     });
 
     if (!response.ok) { res.write(`data: ${JSON.stringify({ type: "error", message: await response.text() })}\n\n`); res.end(); return; }
@@ -363,6 +370,8 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
 
     const decoder = new TextDecoder();
     let fullContent = "";
+    let thinkingContent = "";
+    let isInThinking = false;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -374,15 +383,31 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
         if (data === "[DONE]") continue;
         try {
           const parsed = JSON.parse(data);
-          const delta = parsed.choices?.[0]?.delta?.content;
-          if (delta) { fullContent += delta; res.write(`data: ${JSON.stringify({ type: "chunk", content: delta })}\n\n`); }
+          const delta = parsed.choices?.[0]?.delta;
+          // Handle reasoning_content (thinking phase from deepseek-reasoner)
+          if (delta?.reasoning_content) {
+            thinkingContent += delta.reasoning_content;
+            if (!isInThinking) {
+              isInThinking = true;
+            }
+            res.write(`data: ${JSON.stringify({ type: "thinking", content: delta.reasoning_content })}\n\n`);
+          }
+          // Handle actual content
+          if (delta?.content) {
+            if (isInThinking) {
+              isInThinking = false;
+              res.write(`data: ${JSON.stringify({ type: "thinking_done", thinkingLength: thinkingContent.length })}\n\n`);
+            }
+            fullContent += delta.content;
+            res.write(`data: ${JSON.stringify({ type: "chunk", content: delta.content })}\n\n`);
+          }
         } catch {}
       }
     }
 
     // Extract code files from content
     const files = extractFiles(fullContent, agentId);
-    res.write(`data: ${JSON.stringify({ type: "done", content: fullContent, files, agentId, stepId })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: "done", content: fullContent, files, agentId, stepId, hadThinking: thinkingContent.length > 0 })}\n\n`);
     res.end();
   } catch (err: any) {
     res.write(`data: ${JSON.stringify({ type: "error", message: err.message })}\n\n`);

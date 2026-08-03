@@ -27,6 +27,9 @@ interface PlanStep {
   files?: { name: string; content: string; language: string }[];
   expanded: boolean;
   streamingText?: string;
+  thinkingText?: string;
+  isThinking?: boolean;
+  hadThinking?: boolean;
 }
 
 interface ProjectMemory {
@@ -198,6 +201,13 @@ export default function AgentBuilderPage() {
                 stepContent += parsed.content;
                 setPlan(prev => prev.map((s, j) => j === i ? { ...s, streamingText: stepContent } : s));
               } else if (parsed.type === "done") {
+              } else if (parsed.type === "thinking_start") {
+                setPlan(prev => prev.map((s, j) => j === i ? { ...s, isThinking: true, thinkingText: "" } : s));
+              } else if (parsed.type === "thinking") {
+                setPlan(prev => prev.map((s, j) => j === i ? { ...s, thinkingText: (s.thinkingText || "") + parsed.content } : s));
+              } else if (parsed.type === "thinking_done") {
+                setPlan(prev => prev.map((s, j) => j === i ? { ...s, isThinking: false } : s));
+              } else if (parsed.type === "done") {
                 const stepFiles = parsed.files || [];
                 allFiles.push(...stepFiles);
                 projectContext += `\n\n=== ${step.agentId} output ===\n${stepContent.slice(0, 1000)}`;
@@ -255,8 +265,11 @@ export default function AgentBuilderPage() {
           if (!line.startsWith("data: ")) continue;
           try {
             const parsed = JSON.parse(line.slice(6));
-            if (parsed.type === "chunk") { content += parsed.content; setPlan(prev => prev.map((s, j) => j === stepIndex ? { ...s, streamingText: content } : s)); }
-            else if (parsed.type === "done") { setPlan(prev => prev.map((s, j) => j === stepIndex ? { ...s, status: "done", output: content, files: parsed.files, streamingText: undefined } : s)); }
+            if (parsed.type === "thinking_start") { setPlan(prev => prev.map((s, j) => j === stepIndex ? { ...s, isThinking: true, thinkingText: "" } : s)); }
+            else if (parsed.type === "thinking") { setPlan(prev => prev.map((s, j) => j === stepIndex ? { ...s, thinkingText: (s.thinkingText || "") + parsed.content } : s)); }
+            else if (parsed.type === "thinking_done") { setPlan(prev => prev.map((s, j) => j === stepIndex ? { ...s, isThinking: false } : s)); }
+            else if (parsed.type === "chunk") { content += parsed.content; setPlan(prev => prev.map((s, j) => j === stepIndex ? { ...s, streamingText: content } : s)); }
+            else if (parsed.type === "done") { setPlan(prev => prev.map((s, j) => j === stepIndex ? { ...s, status: "done", output: content, files: parsed.files, streamingText: undefined, hadThinking: parsed.hadThinking } : s)); }
           } catch {}
         }
       }
@@ -544,6 +557,15 @@ export default function AgentBuilderPage() {
                       {step.status === "running" && step.streamingText && (
                         <span className="text-xs text-primary/70">{step.streamingText.length} chars</span>
                       )}
+                      {step.status === "running" && step.isThinking && (
+                        <span className="text-xs text-violet-400/80 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+                          {lang === "ar" ? "يفكر..." : "thinking..."}
+                        </span>
+                      )}
+                      {step.status === "done" && step.hadThinking && (
+                        <span className="text-xs text-violet-400/50">🧠</span>
+                      )}
                       {step.expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                     </div>
                   </button>
@@ -553,6 +575,41 @@ export default function AgentBuilderPage() {
                     <div className="px-4 pb-4 border-t border-border/50 mt-0">
                       {step.status === "running" && step.streamingText && (
                         <div className="mt-3 bg-gray-950 rounded-xl p-3 max-h-64 overflow-auto">
+                          <pre className="text-green-300 text-xs font-mono whitespace-pre-wrap leading-relaxed">
+                            {step.streamingText}<span className="animate-pulse">▌</span>
+                          </pre>
+                        </div>
+                      )}
+                      {/* Thinking phase display */}
+                      {step.status === "running" && step.isThinking && (
+                        <div className="mt-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="flex gap-1">
+                              <span className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+                              <span className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+                              <span className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                            </div>
+                            <span className="text-xs text-violet-400 font-medium">
+                              {lang === "ar" ? "🧠 يفكر ويحلل..." : "🧠 Thinking & analyzing..."}
+                            </span>
+                          </div>
+                          {step.thinkingText && (
+                            <div className="max-h-32 overflow-auto">
+                              <p className="text-xs text-violet-300/70 leading-relaxed font-mono whitespace-pre-wrap">
+                                {step.thinkingText.slice(-500)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {step.status === "running" && !step.isThinking && step.streamingText && (
+                        <div className="mt-3 bg-gray-950 rounded-xl p-3 max-h-64 overflow-auto">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                            <span className="text-xs text-green-400/70">
+                              {lang === "ar" ? "يكتب الكود..." : "Writing code..."}
+                            </span>
+                          </div>
                           <pre className="text-green-300 text-xs font-mono whitespace-pre-wrap leading-relaxed">
                             {step.streamingText}<span className="animate-pulse">▌</span>
                           </pre>
