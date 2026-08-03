@@ -215,33 +215,34 @@ export default function ChatPage({ projectId }: { projectId?: number }) {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex h-full overflow-hidden bg-background" dir={isRTL ? "rtl" : "ltr"}>
+    <div className="flex flex-col overflow-hidden bg-background" style={{ height: '100%' }} dir={isRTL ? "rtl" : "ltr"}>
       {/* ── Main Chat Area ── */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Messages */}
+      {/* ── Main Chat Area ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Messages / Welcome */}
         <ScrollArea className="flex-1 px-4">
           {isEmpty ? (
-            /* Welcome Screen */
-            <div className="flex flex-col items-center justify-center min-h-full py-16 text-center">
-              <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mb-6 glow-primary">
-                <Sparkles className="w-8 h-8 text-white" />
+            /* Welcome Screen - compact on mobile */
+            <div className="flex flex-col items-center justify-start pt-6 pb-4 text-center">
+              <div className="w-12 h-12 rounded-2xl gradient-primary flex items-center justify-center mb-3 glow-primary">
+                <Sparkles className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-3xl font-bold text-gradient mb-3">
+              <h1 className="text-2xl font-bold text-gradient mb-1">
                 {lang === "ar" ? "منصة الوكيل الذكي" : "AI Agent Platform"}
               </h1>
-              <p className="text-muted-foreground text-lg mb-8 max-w-md">
+              <p className="text-muted-foreground text-sm mb-4 max-w-md">
                 {lang === "ar"
                   ? "اكتب برومبت واحد واحصل على مشروع كامل جاهز للاستخدام"
                   : "Write one prompt and get a complete ready-to-use project"}
               </p>
-              {/* Agent Grid */}
-              <div className="grid grid-cols-4 gap-3 mb-8 max-w-lg">
+              {/* Agent Grid - smaller on mobile */}
+              <div className="grid grid-cols-4 sm:grid-cols-4 gap-2 mb-4 w-full max-w-lg">
                 {Object.entries(agentIcons).map(([key, icon]) => (
-                  <div key={key} className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-card border border-border hover:border-primary/30 transition-all cursor-default">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                  <div key={key} className="flex flex-col items-center gap-1 p-1.5 rounded-xl bg-card border border-border hover:border-primary/30 transition-all cursor-default">
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                       {icon}
                     </div>
-                    <span className="text-xs text-muted-foreground text-center leading-tight">
+                    <span className="text-[10px] text-muted-foreground text-center leading-tight">
                       {tr.agents[key as keyof typeof tr.agents]}
                     </span>
                   </div>
@@ -249,15 +250,15 @@ export default function ChatPage({ projectId }: { projectId?: number }) {
               </div>
               {/* Suggestions */}
               <div className="w-full max-w-2xl">
-                <p className="text-xs text-muted-foreground mb-3">{tr.chat.suggestions}</p>
+                <p className="text-xs text-muted-foreground mb-2">{tr.chat.suggestions}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {suggestions[lang].slice(0, 4).map((s, i) => (
                     <button
                       key={i}
                       onClick={() => setInput(s)}
-                      className="text-start p-3 rounded-xl bg-card border border-border hover:border-primary/40 hover:bg-primary/5 transition-all text-sm text-muted-foreground hover:text-foreground"
+                      className="text-start p-2.5 rounded-xl bg-card border border-border hover:border-primary/40 hover:bg-primary/5 transition-all text-sm text-muted-foreground hover:text-foreground"
                     >
-                      <Zap className="w-3.5 h-3.5 inline me-2 text-primary" />
+                      <Zap className="w-3 h-3 inline me-1.5 text-primary" />
                       {s}
                     </button>
                   ))}
@@ -314,7 +315,7 @@ export default function ChatPage({ projectId }: { projectId?: number }) {
         </ScrollArea>
 
         {/* ── Input Area ── */}
-        <div className="border-t border-border p-4">
+        <div className="border-t border-border p-4" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
           {/* Attachments preview */}
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
@@ -423,4 +424,3 @@ export default function ChatPage({ projectId }: { projectId?: number }) {
     </div>
   );
 }
-

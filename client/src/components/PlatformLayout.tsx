@@ -177,7 +177,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   );
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background" dir={isRTL ? "rtl" : "ltr"}>
+      <div className="flex overflow-hidden bg-background" style={{ height: '100dvh' }} dir={isRTL ? "rtl" : "ltr"}>
       {/* Desktop Sidebar */}
       <aside
         className={cn(
@@ -233,7 +233,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           {children}
         </main>
       </div>
