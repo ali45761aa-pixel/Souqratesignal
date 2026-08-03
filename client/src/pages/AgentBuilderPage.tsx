@@ -203,31 +203,45 @@ export default function AgentBuilderPage() {
             const data = line.slice(6).trim();
             try {
               const parsed = JSON.parse(data);
-              if (parsed.type === "chunk") {
-                stepContent += parsed.content;
-                setPlan(prev => prev.map((s, j) => j === i ? { ...s, streamingText: stepContent } : s));
-              } else if (parsed.type === "done") {
-              } else if (parsed.type === "thinking_start") {
+              if (parsed.type === "thinking_start") {
                 setPlan(prev => prev.map((s, j) => j === i ? { ...s, isThinking: true, thinkingText: "" } : s));
               } else if (parsed.type === "thinking") {
                 setPlan(prev => prev.map((s, j) => j === i ? { ...s, thinkingText: (s.thinkingText || "") + parsed.content } : s));
               } else if (parsed.type === "thinking_done") {
                 setPlan(prev => prev.map((s, j) => j === i ? { ...s, isThinking: false } : s));
+              } else if (parsed.type === "chunk") {
+                stepContent += parsed.content;
+                setPlan(prev => prev.map((s, j) => j === i ? { ...s, streamingText: stepContent } : s));
+              } else if (parsed.type === "error") {
+                const errMsg = parsed.message || "خطأ من الخادم";
+                setPlan(prev => prev.map((s, j) => j === i ? { ...s, status: "error", errorMessage: errMsg, expanded: true } : s));
               } else if (parsed.type === "done") {
                 const stepFiles = parsed.files || [];
                 allFiles.push(...stepFiles);
                 projectContext += `\n\n=== ${step.agentId} output ===\n${stepContent.slice(0, 1000)}`;
                 setPlan(prev => prev.map((s, j) => j === i ? {
                   ...s, status: "done", output: stepContent,
-                  files: stepFiles, streamingText: undefined, expanded: false,
+                  files: stepFiles, streamingText: undefined, expanded: false, hadThinking: parsed.hadThinking,
                 } : s));
               }
             } catch {}
           }
         }
+        // Fallback: if stream ended but step still "running", mark done with content
+        setPlan(prev => {
+          const s = prev[i];
+          if (s && s.status === "running" && stepContent.length > 100) {
+            const fallbackFiles = (stepContent.includes("<html") || stepContent.includes("<!DOCTYPE"))
+              ? [{ name: "index.html", content: stepContent, language: "html" }] : [];
+            if (fallbackFiles.length > 0) allFiles.push(...fallbackFiles);
+            return prev.map((st, j) => j === i ? { ...st, status: "done", output: stepContent, files: fallbackFiles, streamingText: undefined, expanded: false } : st);
+          }
+          return prev;
+        });
       } catch (err: any) {
         if (err.name !== "AbortError") {
-          setPlan(prev => prev.map((s, j) => j === i ? { ...s, status: "error", expanded: true } : s));
+          const errMsg = (err as any).message || "خطأ في الاتصال";
+          setPlan(prev => prev.map((s, j) => j === i ? { ...s, status: "error", errorMessage: errMsg, expanded: true } : s));
         }
       }
 
