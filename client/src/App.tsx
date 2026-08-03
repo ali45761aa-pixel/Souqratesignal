@@ -1,3 +1,4 @@
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Route, Switch, useLocation } from "wouter";
@@ -26,6 +27,20 @@ const PLATFORM_ROUTES = [
 function Router() {
   const [location] = useLocation();
   const isPlatformRoute = PLATFORM_ROUTES.some(r => location.startsWith(r));
+  const { isAuthenticated, loading } = useAuth();
+
+  // Allow all routes without authentication check
+  // Users can access everything as guests
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">جاري التحميل...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isPlatformRoute) {
     return (
