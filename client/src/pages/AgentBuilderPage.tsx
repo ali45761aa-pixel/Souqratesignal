@@ -113,6 +113,8 @@ export default function AgentBuilderPage() {
   const [qaMessages, setQaMessages] = useState<QAMessage[]>([]);
   const [qaInput, setQaInput] = useState("");
   const [isAsking, setIsAsking] = useState(false);
+  const [liveHtmlFile, setLiveHtmlFile] = useState<string | null>(null); // live preview during execution
+  const allFilesRef = useRef<{ name: string; content: string; language: string }[]>([]); // persistent ref for allFiles
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const qaEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -164,6 +166,8 @@ export default function AgentBuilderPage() {
     if (plan.length === 0 || isExecuting) return;
     setIsExecuting(true);
     setActiveTab("plan");
+    setLiveHtmlFile(null);
+    allFilesRef.current = [];
     const allFiles: { name: string; content: string; language: string }[] = [];
     let projectContext = "";
 
@@ -218,6 +222,10 @@ export default function AgentBuilderPage() {
               } else if (parsed.type === "done") {
                 const stepFiles = parsed.files || [];
                 allFiles.push(...stepFiles);
+                allFilesRef.current = [...allFilesRef.current, ...stepFiles];
+                // Update live preview if HTML file found
+                const htmlStep = stepFiles.find((f: any) => f.language === "html");
+                if (htmlStep) { setLiveHtmlFile(htmlStep.content); setActiveTab("preview"); }
                 projectContext += `\n\n=== ${step.agentId} output ===\n${stepContent.slice(0, 1000)}`;
                 setPlan(prev => prev.map((s, j) => j === i ? {
                   ...s, status: "done", output: stepContent,
@@ -233,7 +241,12 @@ export default function AgentBuilderPage() {
           if (s && s.status === "running" && stepContent.length > 100) {
             const fallbackFiles = (stepContent.includes("<html") || stepContent.includes("<!DOCTYPE"))
               ? [{ name: "index.html", content: stepContent, language: "html" }] : [];
-            if (fallbackFiles.length > 0) allFiles.push(...fallbackFiles);
+            if (fallbackFiles.length > 0) {
+              allFiles.push(...fallbackFiles);
+              allFilesRef.current = [...allFilesRef.current, ...fallbackFiles];
+              setLiveHtmlFile(fallbackFiles[0].content);
+              setActiveTab("preview");
+            }
             return prev.map((st, j) => j === i ? { ...st, status: "done", output: stepContent, files: fallbackFiles, streamingText: undefined, expanded: false } : st);
           }
           return prev;
@@ -344,9 +357,12 @@ export default function AgentBuilderPage() {
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const allFiles = projectMemory?.allFiles || [];
-  // Prefer the latest HTML file (from auditor > reviewer > optimizer > mobile > frontend > game > seo)
+  // Prefer the latest HTML file: from projectMemory OR liveHtmlFile during execution
   const htmlFiles = allFiles.filter(f => f.language === "html");
-  const htmlFile = htmlFiles.length > 0 ? htmlFiles[htmlFiles.length - 1] : undefined;
+  const htmlFileContent = htmlFiles.length > 0
+    ? htmlFiles[htmlFiles.length - 1].content  // latest from completed project
+    : liveHtmlFile || undefined;                // live during execution
+  const htmlFile = htmlFileContent ? { content: htmlFileContent, name: "index.html", language: "html" } : undefined;
   const completedSteps = plan.filter(s => s.status === "done").length;
   const totalSteps = plan.length;
   const progress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
