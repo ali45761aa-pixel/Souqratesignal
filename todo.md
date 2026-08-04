@@ -164,3 +164,13 @@
 - [x] Chat during build — continuous conversation (Chat tab always accessible)
 - [x] Real Observability from DeepSeek API response (observability state tracks usage)
 - [x] Stripe/Paymob tabs in Payments page (already implemented in PaymentsPage.tsx)
+
+## Phase 12: Manus-Style Agent Loop
+- [x] Agent Loop hierarchy: analyze → think → select → execute → observe → iterate → deliver
+- [x] buildThinkingPrompt: forces each agent to think before acting (like Manus)
+- [x] previousResults passed between agents for full context continuity
+- [x] Agent Loop Status Bar in UI showing current phase with animated transitions
+- [x] agentLoop.ts: orchestrator prompt, thinking prompt, execution order resolver, observer
+- [x] Supabase PostgreSQL connected (21 tables migrated)
+- [x] Contabo deployment: Docker + Nginx virtual host for souqratesignal.online
+- [x] GitHub repo: ali45761aa-pixel/Souqratesignal

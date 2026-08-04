@@ -1,6 +1,6 @@
 import { getModelForAgent } from "../lib/modelRouter";
 import { Router, Request, Response } from "express";
-
+import { buildThinkingPrompt, observeAndDecide, LOOP_PHASES } from "../lib/agentLoop";
 import { detectTheme, generateDesignSystemCSS, getDesignInstructions, getUnsplashPhotos, DESIGN_THEMES } from '../lib/designSystem';
 import { searchUnsplashImages } from '../lib/integrations';
 const agentsRouter = Router();
@@ -588,7 +588,7 @@ Rules:
 
 // ── Execute single agent step with streaming ─────────────────────────────────
 agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
-  const { prompt, stepId, agentId, lang = "ar", projectContext = "", conversationHistory = [], previousFiles = [] } = req.body;
+  const { prompt, stepId, agentId, lang = "ar", projectContext = "", conversationHistory = [], previousFiles = [], previousResults = [] } = req.body;
   if (!prompt || !agentId) { res.status(400).json({ error: "prompt and agentId required" }); return; }
 
   const key = process.env.DEEPSEEK_API_KEY;
@@ -606,7 +606,11 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
     }
   }
 
-  const systemPrompt = await buildAgentPrompt(agentId, prompt, lang, richContext);
+  // ── Manus-style Agent Loop: inject thinking framework ──────────────────────
+  const agentName = lang === "ar" ? agent.nameAr : agent.nameEn;
+  const baseAgentPrompt = await buildAgentPrompt(agentId, prompt, lang, richContext);
+  const thinkingPrefix = buildThinkingPrompt(agentId, agentName, prompt, richContext, previousResults ?? [], lang);
+  const systemPrompt = thinkingPrefix + "\n\n" + baseAgentPrompt;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

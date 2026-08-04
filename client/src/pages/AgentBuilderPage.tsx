@@ -196,6 +196,10 @@ export default function AgentBuilderPage() {
   const [showFormatMenu, setShowFormatMenu] = useState(false);
   const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── Manus-style Agent Loop state ─────────────────────────────────────────────
+  const [loopPhase, setLoopPhase] = useState<"idle" | "analyze" | "think" | "plan" | "select" | "execute" | "observe" | "iterate" | "deliver">("idle");
+  const previousResultsRef = useRef<string[]>([]);
+
   // Total cost calculation
   const totalCost = useMemo(() => observability.reduce((acc, e) => acc + e.costUSD, 0), [observability]);
   const totalTokens = useMemo(() => observability.reduce((acc, e) => acc + e.tokensIn + e.tokensOut, 0), [observability]);
@@ -751,11 +755,20 @@ export default function AgentBuilderPage() {
     allFilesRef.current = [];
     const allFiles: { name: string; content: string; language: string }[] = [];
     let projectContext = "";
+    previousResultsRef.current = [];
 
     for (let i = 0; i < plan.length; i++) {
       const step = plan[i];
       setCurrentStepIndex(i);
 
+      // ── Manus Agent Loop: phase transitions ──────────────────────────────
+      setLoopPhase("analyze");
+      await new Promise(r => setTimeout(r, 250));
+      setLoopPhase("think");
+      await new Promise(r => setTimeout(r, 350));
+      setLoopPhase("select");
+      await new Promise(r => setTimeout(r, 150));
+      setLoopPhase("execute");
       // Mark as running
       setPlan(prev => prev.map((s, j) => j === i ? { ...s, status: "running", expanded: true, streamingText: "" } : s));
 
@@ -770,6 +783,7 @@ export default function AgentBuilderPage() {
           body: JSON.stringify({
             prompt, stepId: step.id, agentId: step.agentId,
             lang, projectContext: projectContext.slice(0, 5000),
+            previousResults: previousResultsRef.current.slice(-3),
             previousFiles: (() => {
               // For reviewer/auditor: pass the full HTML file so they can actually fix it
               if (["reviewer", "auditor", "innovation", "strategy"].includes(step.agentId)) {
@@ -851,6 +865,11 @@ export default function AgentBuilderPage() {
                 }
               }
                projectContext += `\n\n=== ${step.agentId} output ===\n${stepContent.slice(0, 1000)}`;
+               // ── Manus Agent Loop: observe result ──────────────────────────────
+               setLoopPhase("observe");
+               previousResultsRef.current = [...previousResultsRef.current, stepContent.slice(0, 800)];
+               await new Promise(r => setTimeout(r, 200));
+               if (i < plan.length - 1) setLoopPhase("iterate"); else setLoopPhase("deliver");
                setPlan(prev => prev.map((s, j) => j === i ? {
                  ...s, status: "done", output: stepContent,
                  files: stepFiles, streamingText: undefined, expanded: false, hadThinking: parsed.hadThinking,
@@ -910,6 +929,7 @@ export default function AgentBuilderPage() {
     setProjectMemory(memory);
     setCurrentStepIndex(-1);
     setIsExecuting(false);
+    setLoopPhase("idle");
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     // Update liveHtmlFile with the final best HTML from projectMemory
     const finalHtmlFiles = deduplicateFiles(allFiles).filter(f => f.language === "html");
@@ -1508,6 +1528,45 @@ export default function AgentBuilderPage() {
         {activeTab === "plan" && plan.length > 0 && !isPlanning && (
           <div className="h-full overflow-y-auto p-3">
             <div className="max-w-3xl mx-auto space-y-2">
+              {/* ── Manus-style Agent Loop Status Bar ─────────────────────── */}
+              {isExecuting && loopPhase !== "idle" && (
+                <div className="mb-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                    <span className="text-xs font-semibold text-primary">
+                      {lang === "ar" ? "حلقة عمل الوكيل (Agent Loop)" : "Agent Loop"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {([
+                      { id: "analyze", icon: "🔍", ar: "تحليل", en: "Analyze" },
+                      { id: "think",   icon: "💭", ar: "تفكير", en: "Think" },
+                      { id: "select",  icon: "🎯", ar: "اختيار", en: "Select" },
+                      { id: "execute", icon: "⚡", ar: "تنفيذ", en: "Execute" },
+                      { id: "observe", icon: "👁️", ar: "مراقبة", en: "Observe" },
+                      { id: "iterate", icon: "🔄", ar: "تكرار", en: "Iterate" },
+                      { id: "deliver", icon: "✅", ar: "تسليم", en: "Deliver" },
+                    ] as const).map((phase, idx, arr) => (
+                      <div key={phase.id} className="flex items-center gap-1">
+                        <div className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-all duration-300",
+                          loopPhase === phase.id
+                            ? "bg-primary text-primary-foreground font-semibold scale-105 shadow-sm"
+                            : ["analyze","think","select","execute","observe","iterate","deliver"].indexOf(loopPhase) > idx
+                              ? "bg-green-500/15 text-green-400"
+                              : "bg-card text-muted-foreground/50"
+                        )}>
+                          <span>{phase.icon}</span>
+                          <span className="hidden sm:inline">{lang === "ar" ? phase.ar : phase.en}</span>
+                        </div>
+                        {idx < arr.length - 1 && (
+                          <span className="text-muted-foreground/30 text-xs">→</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {plan.map((step, i) => (
                 <div
                   key={step.id}
