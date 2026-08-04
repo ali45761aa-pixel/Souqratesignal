@@ -550,7 +550,9 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-      body: JSON.stringify({ model, messages, max_tokens: useReasoner ? 8000 : 6000, temperature: useReasoner ? 0.6 : 0.7, stream: true }),
+      // Increase tokens for complex projects + add 3min timeout
+      signal: AbortSignal.timeout(180000),
+      body: JSON.stringify({ model, messages, max_tokens: useReasoner ? 12000 : 8000, temperature: useReasoner ? 0.5 : 0.6, stream: true }),
     });
 
     if (!response.ok) { res.write(`data: ${JSON.stringify({ type: "error", message: await response.text() })}\n\n`); res.end(); return; }

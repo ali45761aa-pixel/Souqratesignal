@@ -131,6 +131,8 @@ export default function AgentBuilderPage() {
   const [isAsking, setIsAsking] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployedUrl, setDeployedUrl] = useState<string | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [liveHtmlFile, setLiveHtmlFile] = useState<string | null>(null); // live preview during execution
   const allFilesRef = useRef<{ name: string; content: string; language: string }[]>([]); // persistent ref for allFiles
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -290,6 +292,7 @@ export default function AgentBuilderPage() {
     setProjectMemory(memory);
     setCurrentStepIndex(-1);
     setIsExecuting(false);
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     // Update liveHtmlFile with the final best HTML from projectMemory
     const finalHtmlFiles = deduplicateFiles(allFiles).filter(f => f.language === "html");
     if (finalHtmlFiles.length > 0) {
@@ -480,8 +483,14 @@ export default function AgentBuilderPage() {
             <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
               <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
             </div>
-            <span className="text-xs text-muted-foreground shrink-0">
-              {completedSteps}/{totalSteps} {lang === "ar" ? "مكتمل" : "done"}
+            <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-2">
+              <span className={plan.filter(s => s.status === "error").length > 0 ? "text-red-400" : ""}>
+                {completedSteps}/{totalSteps}
+              </span>
+              {plan.filter(s => s.status === "error").length > 0 && (
+                <span className="text-red-400">• {plan.filter(s => s.status === "error").length} {lang === "ar" ? "خطأ" : "err"}</span>
+              )}
+              {isExecuting && <span className="text-primary font-mono">{Math.floor(elapsedTime/60)}:{String(elapsedTime%60).padStart(2,'0')}</span>}
             </span>
           </div>
         )}
