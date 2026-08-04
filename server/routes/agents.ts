@@ -1045,53 +1045,97 @@ JavaScript الإلزامي في نهاية الـ body:
 
 ${designInstructions}
 
-═══════════════════════════════════════════════════
-MANDATORY BUILD RULES — follow every single one:
-═══════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
+STEP 0 — DESIGN BRIEF (MANDATORY before writing any code):
+═══════════════════════════════════════════════════════════════
+Define in your head (do NOT output this, just apply it):
+- Color palette: 2 primary + 1 accent — NEVER use Bootstrap blue #007bff or default colors
+- Typography: Choose from: Inter, Manrope, Sora, Space Grotesk, Plus Jakarta Sans, Satoshi, General Sans
+- Design style: minimal / bold / glassmorphism / editorial — pick ONE and apply consistently
+- Spacing scale: 4px or 8px base — every margin/padding must be a multiple of this
 
-REQUIRED STRUCTURE:
-Start with <!DOCTYPE html><html lang="en"> with real meta charset, viewport, title, description.
-Add Google Fonts from designSystem in <link>.
-In <style>: embed full CSS Design System from designCSS then project-specific CSS.
+═══════════════════════════════════════════════════════════════
+MANDATORY LIBRARIES — include via CDN in <head>:
+═══════════════════════════════════════════════════════════════
+1. Google Fonts: chosen font from list above
+2. Lucide Icons: <script src="https://unpkg.com/lucide@latest"></script>
+3. AOS (scroll animations): 
+   <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+   <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+4. Alpine.js for interactions: <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+═══════════════════════════════════════════════════════════════
+MANDATORY BUILD RULES — follow every single one:
+═══════════════════════════════════════════════════════════════
+
+REQUIRED HTML STRUCTURE:
+<!DOCTYPE html><html lang="en"> with:
+- <meta charset="UTF-8">
+- <meta name="viewport" content="width=device-width, initial-scale=1.0">
+- <meta name="description" content="[real description]">
+- <meta property="og:title"> and <meta property="og:description"> for social sharing
+- <link rel="icon" href="[relevant emoji as favicon]">
+- Google Fonts <link> for chosen font
+- CDN libraries above
 
 MANDATORY SECTIONS IN ORDER:
-1. NAV: sticky with backdrop-filter, logo + links + CTA button + hamburger for mobile
-2. HERO: hero-badge with pulse dot + large h1 with gradient-text + subtitle + 2 buttons + hero-image
-3. STATS: 4 numbers with class="stat-number" and data-target="[number]" for counter animation
-4. FEATURES: 6 cards with feature-icon, feature-title, feature-desc
-5. HOW IT WORKS: 3 numbered steps with distinctive design
-6. TESTIMONIALS: 3 customer reviews with testimonial-card, stars, testimonial-author
-7. PRICING: 3 plans (Free/Pro/Enterprise) with pricing-card, middle plan has class="featured"
-8. CTA: call-to-action section with gradient background and large button
-9. FOOTER: footer-grid with 4 columns + social-links + footer-bottom
+1. NAV: sticky with backdrop-filter:blur(24px), logo + links + CTA button + hamburger (x-data Alpine)
+2. HERO: section-label + large h1 with gradient-text + subtitle + 2 buttons + hero-image with data-aos="fade-up"
+3. STATS: 4 numbers with class="stat-number" data-target="[number]" data-suffix="+" for counter animation
+4. FEATURES: 6 cards with feature-icon (Lucide), feature-title, feature-desc — data-aos="fade-up" data-aos-delay="[0/100/200]"
+5. HOW IT WORKS: 3 numbered steps with step-number, step-title, step-desc — connected by visual line
+6. TESTIMONIALS: 3 cards with avatar (Unsplash), name, role, stars (★★★★★), quote
+7. PRICING: 3 plans with pricing-card, middle has class="featured" + "Most Popular" badge
+8. FAQ: 5 questions with Alpine.js accordion (x-data, x-show, @click)
+9. CTA: gradient background section with large headline + button
+10. FOOTER: 4-column grid + social icons (Lucide) + newsletter form + footer-bottom with copyright
 
 MANDATORY CONTENT RULES:
-- Write real, relevant content — NO Lorem ipsum, NO placeholder text EVER
-- Website name must match the project
-- Stats numbers must be logical (e-commerce → "50,000+ Products", "200+ Brands")
-- Testimonials with realistic names and relevant quotes + Unsplash photos
-- Pricing must be realistic for the market
+- ZERO Lorem ipsum — write real, specific, relevant content for this exact project
+- Website name must match the project exactly
+- Stats must be realistic and impressive (e-commerce: "50,000+ Products", barista: "10,000+ Cups Daily")
+- Testimonials: realistic names + relevant quotes + Unsplash avatar photos
+- Pricing: realistic market prices for this specific industry
 
-IMAGE RULES — use these real pre-selected URLs for your project:
+IMAGE RULES:
 ${photoList}
-- Hero: use Photo 1 with w=1200
-- Cards: use Photo 2-6 with w=600
-- NEVER use [ID] placeholder — use the complete URLs above
+- Hero: use Photo 1 with w=1200&h=800&fit=crop
+- Cards/Avatars: use Photo 2-6 with w=400&h=400&fit=crop&crop=face
+- NEVER use [ID] placeholder — use complete URLs above
 
-MANDATORY CSS RULES:
-- Use rgba(var(--primary-rgb), 0.1) for transparency — NOT rgba(var(--primary), 0.1)
-- Add class="reveal" to every major section
-- Add data-target="[number]" to every stat-number
-- Nav must be position:sticky with backdrop-filter:blur(24px)
+MANDATORY CSS QUALITY RULES:
+- CSS custom properties for ALL colors, fonts, spacing — no hardcoded values
+- Use rgba(var(--primary-rgb), 0.1) for transparency — NEVER rgba(var(--primary), 0.1)
+- Every section: class="reveal" for scroll animation
+- Smooth transitions: transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1)
+- Button :active state: transform: scale(0.97) — makes buttons feel responsive
+- Cards: box-shadow that changes on hover (lift effect)
+- Typography hierarchy: clear size difference between h1/h2/h3/body/caption
+- Whitespace: generous padding (min 80px vertical) — "let the design breathe"
+- Mobile-first: different layout for 320px, 768px, 1200px — not just "it works"
 
-MANDATORY JAVASCRIPT at end of body:
-// 1. Scroll Reveal IntersectionObserver
-// 2. Counter Animation for all [data-target]
-// 3. Mobile Menu Toggle
-// 4. Smooth scroll for nav links
-// 5. Any project-specific interactions
+MANDATORY JAVASCRIPT (at end of body):
+1. AOS.init({ duration: 800, once: true, offset: 100 });
+2. Lucide.createIcons();
+3. Counter Animation: IntersectionObserver on [data-target] elements
+4. Mobile Menu: Alpine.js handles this automatically
+5. Smooth scroll: document.querySelectorAll('a[href^="#"]')
+6. Sticky nav: add class on scroll for background change
+7. Back-to-top button: appears after 300px scroll
+8. Any project-specific interactions (tabs, modals, sliders)
 
-Return ONLY the complete HTML code inside \`\`\`html ... \`\`\` — no explanation outside${ctx}`,
+LOADING & EMPTY STATES:
+- Buttons: show loading spinner on click (add/remove class)
+- Images: add loading="lazy" to all images
+- Forms: show success/error state after submission
+
+ACCESSIBILITY (non-negotiable):
+- All images: descriptive alt text
+- All interactive elements: aria-label
+- Color contrast: minimum 4.5:1 for text
+- Focus styles: visible outline for keyboard navigation
+
+Return ONLY the complete HTML code inside \`\`\`html ... \`\`\` — no text outside the code block${ctx}`,
     backend: ar
      ? `أنت مطور Backend خبير. اكتب كود Node.js + Express كاملاً:
 - RESTful API endpoints
@@ -1373,33 +1417,56 @@ Make summary comprehensive and accurate${ctx}`,
    - تأكد من أن الـ nav sticky مع backdrop-filter
 
 أرجع الكود HTML الكامل المُحسَّن فقط داخل \`\`\`html ... \`\`\` — بدون أي شرح خارجه.${ctx}`
-      : `You are the Professional Review Agent — your mission is to elevate code from good to stunning.
+      : `You are the Professional Review Agent — your mission is to elevate code from good to world-class Awwwards level.
 
-You have the current project code. Your tasks:
+You have the current project HTML. Apply ALL of these improvements:
 
-1. **Fix Technical Errors:**
-   - JavaScript errors (undefined variables, missing functions)
-   - Incorrect CSS (rgba on hex variables → use rgba(var(--primary-rgb), 0.1))
-   - Broken links or non-working buttons
-   - Responsive issues on mobile
+═══════════════════════════════════════════
+LAYER 1 — TECHNICAL FIXES (non-negotiable):
+═══════════════════════════════════════════
+- Fix all JS errors (undefined variables, missing functions, broken event listeners)
+- Fix CSS: rgba(var(--primary-rgb), 0.1) NOT rgba(var(--primary), 0.1)
+- Fix broken links, non-working buttons, form submissions
+- Fix responsive issues at 320px, 768px, 1200px breakpoints
 
-2. **Improve Visual Design:**
-   - If Hero section is weak → add gradient background or image
-   - If cards are plain → add hover effects and transitions
-   - If colors are inconsistent → align with Design System
-   - If content is placeholder → replace with real relevant content
+═══════════════════════════════════════════
+LAYER 2 — MISSING LIBRARIES (add if absent):
+═══════════════════════════════════════════
+- AOS library: <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet"> + script
+- Lucide icons: <script src="https://unpkg.com/lucide@latest"></script>
+- Alpine.js: <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+- Google Font (Inter or Manrope or Space Grotesk) if not present
 
-3. **Add Missing Elements:**
-   - If no scroll reveal → add IntersectionObserver
-   - If no counter animation → add for numbers
-   - If no mobile menu → add it
-   - If Footer is incomplete → complete it
+═══════════════════════════════════════════
+LAYER 3 — MOTION & MICRO-INTERACTIONS:
+═══════════════════════════════════════════
+- Add data-aos="fade-up" data-aos-delay="[0/100/200]" to all cards and sections
+- Add AOS.init({ duration: 800, once: true }) in script
+- Button :active → transform: scale(0.97) with 160ms ease-out
+- Card hover → translateY(-4px) + box-shadow increase
+- Nav links → underline animation on hover
+- All transitions: cubic-bezier(0.23, 1, 0.32, 1) — NOT ease or linear
 
-4. **Raise Professionalism:**
-   - Add micro-interactions (hover, focus, active states)
-   - Ensure every image has appropriate alt text
-   - Add loading="lazy" to images
-   - Ensure nav is sticky with backdrop-filter
+═══════════════════════════════════════════
+LAYER 4 — DETAIL IMPROVEMENTS:
+═══════════════════════════════════════════
+- Replace ALL Lorem ipsum with real relevant content
+- Add section-label (small text above each section title)
+- Add FAQ section with Alpine.js accordion if missing
+- Add Back-to-top button (fixed, bottom-right)
+- Add newsletter form in footer if missing
+- Ensure stats have data-suffix="+" for counter animation
+- Add loading="lazy" to ALL images
+
+═══════════════════════════════════════════
+LAYER 5 — ACCESSIBILITY & SEO:
+═══════════════════════════════════════════
+- All images: meaningful alt text (not "image" or "photo")
+- All buttons/links: aria-label where text is unclear
+- Add <meta name="description"> if missing
+- Add Open Graph meta tags (og:title, og:description, og:image)
+- Ensure color contrast ≥ 4.5:1 for all text
+- Add visible focus styles for keyboard navigation
 
 Return ONLY the complete improved HTML inside \`\`\`html ... \`\`\` — no explanation outside.${ctx}`,
     auditor: ar
@@ -1432,35 +1499,60 @@ Return ONLY the complete improved HTML inside \`\`\`html ... \`\`\` — no expla
 لكل مشكلة وجدتها: "🔴 حرجة" / "🟡 تحسين" / "🟢 ملاحظة"
 ثم أرجع الكود HTML الكامل المُحسَّن فقط داخل \`\`\`html ... \`\`\`
 في النهاية أضف: "⭐ التقييم النهائي: [X]/10"${ctx}`
-      : `You are the Deep Audit & Final Enhancement Agent — the last agent to work on the project.
+      : `You are the Deep Audit & Final Enhancement Agent — the LAST agent. Your output is what the user sees.
 
-Your mission: Transform the website from "good" to "professional worth thousands of dollars."
+Your mission: Transform the website into a PREMIUM product worth $5,000+.
 
-**Phase 1 — Comprehensive Audit:**
-🔐 Security: Check XSS, CSRF, input sanitization
-⚡ Performance: Code size, render-blocking scripts, image optimization
-🎨 Design: Color consistency, typography hierarchy, spacing system
-♿ Accessibility: alt text, aria-labels, keyboard navigation, color contrast
-📱 Responsive: Works perfectly at 320px, 768px, 1200px
-🧹 Code: No duplication, clear naming, logical organization
+═══════════════════════════════════════════════════
+PHASE 1 — THE GOLDEN RULE AUDIT:
+═══════════════════════════════════════════════════
+"The difference between an ordinary site and a world-class one is 90% consistent small details 
+(spacing, timing, contrast) applied with discipline, NOT one big feature."
 
-**Phase 2 — Mandatory Aesthetic Improvements:**
-1. If Hero section has no image → add hero-image with relevant Unsplash photo
-2. If sections look boring → add background patterns or subtle gradients
-3. If buttons are plain → add shimmer effect or arrow icon
-4. If footer is minimal → add newsletter signup form
-5. Add "Back to Top" button in corner
-6. Add smooth scroll behavior and page transitions
-7. Ensure every section has a section-label above the title
+Check EVERY element for:
+✅ Spacing: Is every margin/padding a multiple of 4px or 8px?
+✅ Typography: Clear hierarchy h1 > h2 > h3 > body > caption? Font consistent throughout?
+✅ Color: Max 3 colors used consistently? No random color deviations?
+✅ Contrast: All text passes WCAG AA (4.5:1 minimum)?
+✅ Whitespace: Does the design "breathe"? Min 80px vertical padding per section?
+✅ Motion: Animations under 300ms? Using cubic-bezier(0.23, 1, 0.32, 1)?
+✅ Consistency: Same border-radius everywhere? Same shadow style?
 
-**Phase 3 — Final Content:**
-- Replace any placeholder text with real relevant content
-- Ensure testimonial names are realistic
-- Ensure Stats numbers are logical and convincing
+═══════════════════════════════════════════════════
+PHASE 2 — PERFORMANCE LAYER:
+═══════════════════════════════════════════════════
+- Move all <script> tags to end of <body> (except CDN in head)
+- Add loading="lazy" to ALL images
+- Add fetchpriority="high" to hero image only
+- Defer non-critical CSS
+- Minify inline CSS (remove comments, extra spaces)
 
-For each issue found: "🔴 Critical" / "🟡 Improvement" / "🟢 Note"
-Then return ONLY the complete improved HTML inside \`\`\`html ... \`\`\`
-At the end add: "⭐ Final Score: [X]/10"${ctx}`,
+═══════════════════════════════════════════════════
+PHASE 3 — FINAL POLISH (apply ALL):
+═══════════════════════════════════════════════════
+1. Hero: Must have image + gradient overlay + badge + 2 CTAs + scroll indicator arrow
+2. Every section: section-label in small caps above the main heading
+3. Testimonials: Real avatar photos from Unsplash + 5 stars + realistic quotes
+4. FAQ: Alpine.js accordion with smooth animation
+5. Footer: Newsletter form + 4 columns + social icons (Lucide) + copyright
+6. Back-to-top: Fixed button, bottom-right, appears after 300px scroll
+7. 404-style empty states: If any section has no content, add meaningful placeholder
+8. Skeleton screens: Add CSS skeleton animation class for loading states
+9. Favicon: Add <link rel="icon" href="data:image/svg+xml,..."> with relevant emoji
+10. Open Graph: og:title, og:description, og:image meta tags
+
+═══════════════════════════════════════════════════
+PHASE 4 — CONTENT FINAL CHECK:
+═══════════════════════════════════════════════════
+- ZERO Lorem ipsum — replace every instance with real content
+- Stats: Impressive but believable numbers with context
+- Testimonials: Names that match the target market culture
+- Pricing: Research-based prices for this specific industry
+
+Rate each issue: 🔴 Critical (breaks UX) / 🟡 Improvement / 🟢 Polish
+
+Return ONLY the complete final HTML inside \`\`\`html ... \`\`\`
+End with: "⭐ Quality Score: [X]/10 | 🚀 Production Ready: [Yes/Almost/No]"${ctx}`,
 
     strategy: ar
       ? `أنت خبير استراتيجية منتجات رقمية. حلّل المشروع وأخرج:

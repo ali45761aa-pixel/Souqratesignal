@@ -640,6 +640,35 @@ if (toggle) toggle.addEventListener('click', () => navLinks.classList.toggle('op
 \`\`\`
 
 PROJECT: ${prompt}
+
+═══════════════════════════════════════════════════
+MANDATORY CDN LIBRARIES (include in <head>):
+═══════════════════════════════════════════════════
+<!-- Google Fonts (use the heading font above) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="${t.googleFonts}" rel="stylesheet">
+<!-- AOS Scroll Animations -->
+<link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
+<!-- Alpine.js for interactions -->
+<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<!-- AOS Script (before </body>) -->
+<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+<script>AOS.init({ duration: 800, once: true, offset: 100 }); Lucide.createIcons();</script>
+
+═══════════════════════════════════════════════════
+THE GOLDEN RULE (apply to EVERY element):
+═══════════════════════════════════════════════════
+- Spacing: ALL margins/paddings must be multiples of 4px or 8px
+- Typography: Clear hierarchy — h1 > h2 > h3 > body > caption
+- Color: Max 3 colors, used consistently throughout
+- Motion: ALL animations ≤ 300ms, easing: cubic-bezier(0.23, 1, 0.32, 1)
+- Whitespace: Min 80px vertical padding per section — "let the design breathe"
+- Consistency: Same border-radius, same shadow style, same spacing everywhere
+- Contrast: All text ≥ 4.5:1 contrast ratio (WCAG AA)
+- Micro-interactions: Button :active → scale(0.97), Card hover → translateY(-4px)
+- data-aos="fade-up" on ALL cards and sections with staggered data-aos-delay="0/100/200"
 `;
 }
 
