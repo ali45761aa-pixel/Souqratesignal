@@ -408,7 +408,66 @@ export default function AgentBuilderPage() {
   }, []);
 
   // Inject console interceptor into iframe HTML
+  // ── HTML Cleaner — extracts pure HTML from mixed LLM output ──────────────
+  const cleanHtmlContent = (raw: string): string => {
+    if (!raw) return raw;
+
+    // Step 1: Extract from markdown code block ```html ... ``` (most common)
+    const codeBlockMatch = raw.match(/```html\s*([\s\S]*?)```/i);
+    if (codeBlockMatch) return codeBlockMatch[1].trim();
+
+    // Step 2: Extract from any code block ``` ... ```
+    const anyBlockMatch = raw.match(/```\w*\s*(<!DOCTYPE[\s\S]*?)```/i);
+    if (anyBlockMatch) return anyBlockMatch[1].trim();
+
+    // Step 3: Find DOCTYPE and extract everything from there
+    const doctypeIdx = raw.indexOf('<!DOCTYPE');
+    if (doctypeIdx >= 0) {
+      // Find the closing </html> tag
+      const closeHtml = raw.lastIndexOf('</html>');
+      if (closeHtml > doctypeIdx) return raw.slice(doctypeIdx, closeHtml + 7);
+      return raw.slice(doctypeIdx);
+    }
+
+    // Step 4: Find <html and extract
+    const htmlTagIdx = raw.indexOf('<html');
+    if (htmlTagIdx >= 0) {
+      const closeHtml = raw.lastIndexOf('</html>');
+      if (closeHtml > htmlTagIdx) return raw.slice(htmlTagIdx, closeHtml + 7);
+      return raw.slice(htmlTagIdx);
+    }
+
+    // Step 5: Find <head> and extract full structure
+    const headIdx = raw.indexOf('<head>') >= 0 ? raw.indexOf('<head>') : raw.indexOf('<HEAD>');
+    if (headIdx >= 0) {
+      const closeHtml = raw.lastIndexOf('</html>');
+      if (closeHtml > headIdx) return raw.slice(headIdx, closeHtml + 7);
+      // Wrap in html tags
+      const bodyClose = raw.lastIndexOf('</body>');
+      if (bodyClose > headIdx) return `<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n${raw.slice(headIdx, bodyClose + 7)}\n</html>`;
+    }
+
+    // Step 6: If content has <body> tag, wrap it
+    const bodyIdx = raw.indexOf('<body');
+    if (bodyIdx >= 0) {
+      const bodyClose = raw.lastIndexOf('</body>');
+      const extracted = bodyClose > bodyIdx ? raw.slice(bodyIdx, bodyClose + 7) : raw.slice(bodyIdx);
+      return `<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>\n${extracted}\n</html>`;
+    }
+
+    // Step 7: Remove leading non-HTML text (like "html\n" or explanations before the code)
+    // Find first < character that starts a real tag
+    const firstTag = raw.search(/<(!DOCTYPE|html|head|body|div|section|header|nav|main|article|style|script)/i);
+    if (firstTag > 0 && firstTag < 500) {
+      return raw.slice(firstTag);
+    }
+
+    return raw;
+  };
+
   const injectConsoleInterceptor = (html: string): string => {
+    // Clean HTML before injecting
+    html = cleanHtmlContent(html);
     const interceptor = `<script>
 (function() {
   var orig = { log: console.log, error: console.error, warn: console.warn, info: console.info };

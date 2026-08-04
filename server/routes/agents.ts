@@ -1040,7 +1040,7 @@ JavaScript الإلزامي في نهاية الـ body:
 // 4. Smooth scroll لروابط الـ nav
 // 5. أي تفاعل خاص بالمشروع
 
-أرجع الكود HTML الكامل فقط داخل \`\`\`html ... \`\`\` — بدون أي شرح خارجه${ctx}`
+⚠️ تحذير صارم: أرجع الكود HTML الكامل فقط داخل \`\`\`html ... \`\`\` — لا تكتب أي نص أو شرح أو تعليق خارج الـ code block أبداً. أول حرف في ردك يجب أن يكون \`\`\`html وآخر حرف يجب أن يكون \`\`\`${ctx}`
       : `You are a world-class Frontend developer at Awwwards level. Build a stunning professional website worth thousands of dollars.
 
 ${designInstructions}
@@ -1714,6 +1714,35 @@ Single points of failure وكيف نتجنبها${ctx}`
 }
 
 // ── Extract files from agent output ──────────────────────────────────────────
+// ── Clean HTML output — remove leading text/markdown before DOCTYPE ──────────
+function cleanHtmlOutput(raw: string): string {
+  if (!raw) return raw;
+
+  // Extract from ```html ... ``` block
+  const codeBlock = raw.match(/```html\s*([\s\S]*?)```/i);
+  if (codeBlock) return codeBlock[1].trim();
+
+  // Extract from any ``` block containing DOCTYPE
+  const anyBlock = raw.match(/```\w*\s*(<!DOCTYPE[\s\S]*?)```/i);
+  if (anyBlock) return anyBlock[1].trim();
+
+  // Find DOCTYPE and extract to end of </html>
+  const doctypeIdx = raw.indexOf('<!DOCTYPE');
+  if (doctypeIdx >= 0) {
+    const closeHtml = raw.lastIndexOf('</html>');
+    return closeHtml > doctypeIdx ? raw.slice(doctypeIdx, closeHtml + 7) : raw.slice(doctypeIdx);
+  }
+
+  // Find <html tag
+  const htmlIdx = raw.indexOf('<html');
+  if (htmlIdx >= 0) {
+    const closeHtml = raw.lastIndexOf('</html>');
+    return closeHtml > htmlIdx ? raw.slice(htmlIdx, closeHtml + 7) : raw.slice(htmlIdx);
+  }
+
+  return raw;
+}
+
 function extractFiles(content: string, agentId: string): { name: string; content: string; language: string }[] {
   // Try to extract named code blocks first (```html, ```javascript, etc.)
   const namedBlocks: { name: string; content: string; language: string }[] = [];
@@ -1744,8 +1773,8 @@ function extractFiles(content: string, agentId: string): { name: string; content
       if (fileInfo) {
         // Avoid duplicates — use latest version
         const existing = namedBlocks.findIndex(b => b.name === fileInfo.name);
-        if (existing >= 0) { namedBlocks[existing] = { name: fileInfo.name, content: blockContent, language: fileInfo.lang }; }
-        else { namedBlocks.push({ name: fileInfo.name, content: blockContent, language: fileInfo.lang }); }
+        if (existing >= 0) { namedBlocks[existing] = { name: fileInfo.name, content: fileInfo.lang === "html" ? cleanHtmlOutput(blockContent) : blockContent, language: fileInfo.lang }; }
+        else { namedBlocks.push({ name: fileInfo.name, content: fileInfo.lang === "html" ? cleanHtmlOutput(blockContent) : blockContent, language: fileInfo.lang }); }
       }
     }
   }
@@ -1796,7 +1825,7 @@ function extractFiles(content: string, agentId: string): { name: string; content
       ? content.indexOf("<!DOCTYPE")
       : content.indexOf("<html");
     if (htmlStart >= 0) {
-      return [{ name: "index.html", content: content.slice(htmlStart), language: "html" }];
+      return [{ name: "index.html", content: cleanHtmlOutput(content.slice(htmlStart)), language: "html" }];
     }
   }
   // Secondary check: if content has full HTML structure (not just mentions)
