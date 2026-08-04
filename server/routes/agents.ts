@@ -1,3 +1,4 @@
+import { getModelForAgent } from "../lib/modelRouter";
 import { Router, Request, Response } from "express";
 
 import { detectTheme, generateDesignSystemCSS, getDesignInstructions, getUnsplashPhotos, DESIGN_THEMES } from '../lib/designSystem';
@@ -621,19 +622,41 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
     ];
 
     // Use reasoner model for analysis/design agents, chat for code agents
-    const useReasoner = ["analyzer", "designer", "security", "tester", "optimizer", "strategy", "ux", "brand", "solutions", "architect", "research", "innovation", "auditor"].includes(agentId);
-    const model = useReasoner ? "deepseek-reasoner" : "deepseek-chat";
+    // ── Model Router: Claude for visual/creative agents, DeepSeek for others ──
+    const useClaude = getModelForAgent(agentId) === "claude" && !!process.env.ANTHROPIC_API_KEY;
+    const useReasoner = !useClaude && ["analyzer", "designer", "security", "tester", "optimizer", "strategy", "ux", "brand", "solutions", "architect", "research", "innovation", "auditor"].includes(agentId);
+    const modelLabel = useClaude ? "claude-sonnet-4.5" : (useReasoner ? "deepseek-reasoner" : "deepseek-chat");
 
     // Send thinking start event
-    res.write(`data: ${JSON.stringify({ type: "thinking_start", model })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: "thinking_start", model: modelLabel })}\n\n`);
 
-    const response = await fetch("https://api.deepseek.com/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-      // Increase tokens for complex projects + add 3min timeout
-      signal: AbortSignal.timeout(180000),
-      body: JSON.stringify({ model, messages, max_tokens: useReasoner ? 12000 : 8000, temperature: useReasoner ? 0.5 : 0.6, stream: true }),
-    });
+    let response: globalThis.Response;
+    if (useClaude) {
+      // Use Claude API for frontend/reviewer/auditor/designer/ux/brand/innovation/strategy agents
+      const claudeKey = process.env.ANTHROPIC_API_KEY!;
+      response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": claudeKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        signal: AbortSignal.timeout(180000),
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5-20250929",
+          max_tokens: 16000,
+          temperature: 0.7,
+          stream: true,
+          system: systemPrompt,
+          messages: [{ role: "user", content: `المشروع: ${prompt}\n\nنفّذ مهمتك كـ ${lang === "ar" ? agent.nameAr : agent.nameEn}` }],
+        }),
+      });
+    } else {
+      // Use DeepSeek for analysis/content/SEO/backend agents
+      const dsModel = useReasoner ? "deepseek-reasoner" : "deepseek-chat";
+      response = await fetch("https://api.deepseek.com/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+        signal: AbortSignal.timeout(180000),
+        body: JSON.stringify({ model: dsModel, messages, max_tokens: useReasoner ? 12000 : 8000, temperature: useReasoner ? 0.5 : 0.6, stream: true }),
+      });
+    }
 
     if (!response.ok) { res.write(`data: ${JSON.stringify({ type: "error", message: await response.text() })}\n\n`); res.end(); return; }
 
@@ -655,16 +678,23 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
         if (data === "[DONE]") continue;
         try {
           const parsed = JSON.parse(data);
+
+          // ── Claude SSE format ──
+          if (useClaude) {
+            if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
+              fullContent += parsed.delta.text;
+              res.write(`data: ${JSON.stringify({ type: "chunk", content: parsed.delta.text })}\n\n`);
+            }
+            continue;
+          }
+
+          // ── DeepSeek SSE format ──
           const delta = parsed.choices?.[0]?.delta;
-          // Handle reasoning_content (thinking phase from deepseek-reasoner)
           if (delta?.reasoning_content) {
             thinkingContent += delta.reasoning_content;
-            if (!isInThinking) {
-              isInThinking = true;
-            }
+            if (!isInThinking) isInThinking = true;
             res.write(`data: ${JSON.stringify({ type: "thinking", content: delta.reasoning_content })}\n\n`);
           }
-          // Handle actual content
           if (delta?.content) {
             if (isInThinking) {
               isInThinking = false;
