@@ -11,6 +11,7 @@ import {
   RefreshCw, ArrowUp, Plus, Brain, Palette, Globe, Shield,
   Bot, Gamepad2, CreditCard, BarChart3, Search, Smartphone as Mobile,
   TestTube, BookOpen, Rocket, Settings, MessageCircle
+  , Target, Layers, Lightbulb, GitBranch, Microscope
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -71,6 +72,13 @@ const AGENT_ICONS: Record<string, React.ReactNode> = {
   memory: <Brain className="w-4 h-4" />,
   reviewer: <Search className="w-4 h-4" />,
   auditor: <Shield className="w-4 h-4" />,
+  strategy: <Target className="w-4 h-4" />,
+  ux: <Layers className="w-4 h-4" />,
+  brand: <Palette className="w-4 h-4" />,
+  solutions: <Lightbulb className="w-4 h-4" />,
+  architect: <GitBranch className="w-4 h-4" />,
+  research: <Microscope className="w-4 h-4" />,
+  innovation: <Zap className="w-4 h-4" />,
 };
 
 const AGENT_COLORS: Record<string, string> = {
@@ -94,6 +102,13 @@ const AGENT_COLORS: Record<string, string> = {
   memory: "text-fuchsia-400 bg-fuchsia-500/10 border-fuchsia-500/20",
   reviewer: "text-amber-400 bg-amber-500/10 border-amber-500/20",
   auditor: "text-red-400 bg-red-500/10 border-red-500/20",
+  strategy: "text-blue-400 bg-blue-500/10 border-blue-500/20",
+  ux: "text-purple-400 bg-purple-500/10 border-purple-500/20",
+  brand: "text-pink-400 bg-pink-500/10 border-pink-500/20",
+  solutions: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20",
+  architect: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
+  research: "text-teal-400 bg-teal-500/10 border-teal-500/20",
+  innovation: "text-orange-400 bg-orange-500/10 border-orange-500/20",
 };
 
 // ── Main Component ─────────────────────────────────────────────────────────────

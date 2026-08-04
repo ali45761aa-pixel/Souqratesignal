@@ -144,6 +144,55 @@ export const AGENTS = {
     descEn: "Deep comprehensive audit of every small detail: security, performance, UX, accessibility, responsive, SEO, clean code",
     color: "red",
   },
+  strategy: {
+    id: "strategy", icon: "🎯",
+    nameAr: "وكيل استراتيجية المنتج", nameEn: "Product Strategy Agent",
+    descAr: "يحلل السوق والمنافسين ويضع استراتيجية منتج كاملة مع خارطة طريق",
+    descEn: "Analyzes market and competitors, builds complete product strategy with roadmap",
+    color: "blue",
+  },
+  ux: {
+    id: "ux", icon: "🧩",
+    nameAr: "وكيل UX وتجربة المستخدم", nameEn: "UX Agent",
+    descAr: "يصمم User Journey وWireframes وUser Flows ويحدد نقاط الألم والحلول",
+    descEn: "Designs User Journey, Wireframes, User Flows, identifies pain points and solutions",
+    color: "purple",
+  },
+  brand: {
+    id: "brand", icon: "🎨",
+    nameAr: "وكيل هوية العلامة التجارية", nameEn: "Brand Identity Agent",
+    descAr: "يبني Brand Identity كاملة: ألوان، خطوط، شعار، أسلوب بصري، voice & tone",
+    descEn: "Builds complete Brand Identity: colors, fonts, logo concept, visual style, voice & tone",
+    color: "pink",
+  },
+  solutions: {
+    id: "solutions", icon: "💡",
+    nameAr: "وكيل اكتشاف الحلول", nameEn: "Solutions Discovery Agent",
+    descAr: "يحلل المشكلة بعمق ويقترح 3-5 حلول مختلفة مع مقارنة شاملة للمزايا والعيوب",
+    descEn: "Deeply analyzes the problem and proposes 3-5 different solutions with comprehensive pros/cons comparison",
+    color: "yellow",
+  },
+  architect: {
+    id: "architect", icon: "📐",
+    nameAr: "وكيل هندسة المعمارية", nameEn: "Architecture Agent",
+    descAr: "يصمم System Architecture وData Flow وAPI Design وDatabase Schema بشكل احترافي",
+    descEn: "Designs System Architecture, Data Flow, API Design, and Database Schema professionally",
+    color: "cyan",
+  },
+  research: {
+    id: "research", icon: "🔬",
+    nameAr: "وكيل بحث المستخدمين", nameEn: "User Research Agent",
+    descAr: "يحلل الجمهور المستهدف ويبني User Personas وCustomer Journey Map",
+    descEn: "Analyzes target audience, builds User Personas and Customer Journey Map",
+    color: "teal",
+  },
+  innovation: {
+    id: "innovation", icon: "⚡",
+    nameAr: "وكيل الابتكار", nameEn: "Innovation Agent",
+    descAr: "يولّد أفكاراً إبداعية غير تقليدية وميزات مبتكرة لتمييز المشروع عن المنافسين",
+    descEn: "Generates unconventional creative ideas and innovative features to differentiate the project",
+    color: "orange",
+  },
 };
 
 // ── Plan Generator ────────────────────────────────────────────────────────────
@@ -491,7 +540,7 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
     ];
 
     // Use reasoner model for analysis/design agents, chat for code agents
-    const useReasoner = ["analyzer", "designer", "security", "tester", "optimizer"].includes(agentId);
+    const useReasoner = ["analyzer", "designer", "security", "tester", "optimizer", "strategy", "ux", "brand", "solutions", "architect", "research", "innovation", "auditor"].includes(agentId);
     const model = useReasoner ? "deepseek-reasoner" : "deepseek-chat";
 
     // Send thinking start event
@@ -938,6 +987,253 @@ Make summary comprehensive and accurate${ctx}`,
       : `You are the Deep Audit Agent — most powerful. Tolerate ZERO defects.
 Audit: Security (XSS/CSRF/SQLi), Performance, UX (44px buttons, WCAG AA), Accessibility, Responsive (320px), Clean Code.
 For each: "🔴 Critical" / "🟡 Improvement" / "🟢 Note". Return audited code. Score /10.${ctx}`,
+
+    strategy: ar
+      ? `أنت خبير استراتيجية منتجات رقمية. حلّل المشروع وأخرج:
+
+## 🎯 استراتيجية المنتج
+
+### 1. تحليل السوق
+- حجم السوق المستهدف
+- الاتجاهات الحالية
+- الفرص المتاحة
+
+### 2. تحليل المنافسين
+- أبرز 3 منافسين مع نقاط قوتهم وضعفهم
+- الفجوة في السوق
+
+### 3. Value Proposition
+- ما الذي يجعل هذا المشروع فريداً؟
+- لماذا سيختاره المستخدم؟
+
+### 4. خارطة الطريق (Roadmap)
+- المرحلة 1 (MVP): الميزات الأساسية
+- المرحلة 2: الميزات المتقدمة
+- المرحلة 3: التوسع
+
+### 5. مؤشرات النجاح (KPIs)
+- المقاييس الرئيسية لقياس النجاح
+
+اجعل التحليل دقيقاً ومبنياً على بيانات حقيقية.${ctx}`
+      : `You are a digital product strategy expert. Analyze the project and output a complete strategy: market analysis, competitor analysis, value proposition, roadmap (MVP → Advanced → Scale), and KPIs. Make it data-driven and actionable.${ctx}`,
+
+    ux: ar
+      ? `أنت خبير UX/UI متخصص. صمّم تجربة المستخدم الكاملة:
+
+## 🧩 تصميم تجربة المستخدم
+
+### 1. User Personas (3 شخصيات)
+لكل شخصية: الاسم، العمر، الاحتياجات، نقاط الألم، الأهداف
+
+### 2. User Journey Map
+الخطوات التي يمر بها المستخدم من الاكتشاف حتى الهدف النهائي
+
+### 3. User Flows الرئيسية
+- Flow 1: [أهم مسار]
+- Flow 2: [المسار الثاني]
+
+### 4. Wireframe نصي
+وصف تفصيلي لكل صفحة رئيسية:
+- الهيدر
+- المحتوى الرئيسي
+- الـ CTA
+- الفوتر
+
+### 5. نقاط الاحتكاك والحلول
+المشاكل المتوقعة وكيف نحلها في التصميم
+
+### 6. Micro-interactions المقترحة
+التفاعلات الصغيرة التي تحسن التجربة${ctx}`
+      : `You are a UX/UI expert. Design the complete user experience: 3 User Personas, User Journey Map, main User Flows, textual Wireframes for each page, friction points with solutions, and recommended micro-interactions.${ctx}`,
+
+    brand: ar
+      ? `أنت خبير هوية بصرية وعلامة تجارية. ابنِ هوية كاملة:
+
+## 🎨 هوية العلامة التجارية
+
+### 1. اسم العلامة التجارية
+- اقتراح اسم (إذا لم يُحدَّد)
+- شرح الدلالة والمعنى
+
+### 2. لوحة الألوان الكاملة
+\`\`\`css
+:root {
+  --primary: #[HEX]; /* اللون الرئيسي - [الدلالة] */
+  --secondary: #[HEX]; /* اللون الثانوي */
+  --accent: #[HEX]; /* لون التمييز */
+  --background: #[HEX]; /* الخلفية */
+  --surface: #[HEX]; /* الأسطح */
+  --text-primary: #[HEX]; /* النص الرئيسي */
+  --text-secondary: #[HEX]; /* النص الثانوي */
+  --success: #[HEX];
+  --warning: #[HEX];
+  --error: #[HEX];
+}
+\`\`\`
+
+### 3. الخطوط
+- خط العناوين: [الاسم] - [السبب]
+- خط النص: [الاسم] - [السبب]
+- خط الأرقام: [الاسم] - [السبب]
+- كود Google Fonts جاهز للاستخدام
+
+### 4. أسلوب التصميم
+- الكلمات المفتاحية البصرية (3-5 كلمات)
+- نوع الظلال والحدود
+- نصف قطر الزوايا
+- التباعد والإيقاع
+
+### 5. الصوت والنبرة (Voice & Tone)
+- كيف تتحدث العلامة التجارية؟
+- أمثلة على نصوص CTA
+
+### 6. مفهوم الشعار
+- وصف تفصيلي للشعار المقترح
+- الرمز والمعنى${ctx}`
+      : `You are a brand identity expert. Build a complete brand identity: brand name suggestion, full color palette with CSS variables, typography (Google Fonts), design style keywords, voice & tone, and logo concept description.${ctx}`,
+
+    solutions: ar
+      ? `أنت خبير حل المشكلات والابتكار. حلّل المشكلة واقترح حلولاً:
+
+## 💡 اكتشاف الحلول
+
+### تعريف المشكلة الجوهرية
+ما المشكلة الحقيقية التي يحلها هذا المشروع؟
+
+### الحلول المقترحة
+
+#### الحل 1: [الاسم] — [النهج]
+- **الوصف:** [شرح مفصل]
+- **المزايا:** [قائمة]
+- **العيوب:** [قائمة]
+- **التكلفة التقنية:** منخفضة/متوسطة/عالية
+- **وقت التنفيذ:** [تقدير]
+- **مناسب لـ:** [الحالة المثالية]
+
+#### الحل 2: [الاسم] — [النهج]
+[نفس الهيكل]
+
+#### الحل 3: [الاسم] — [النهج]
+[نفس الهيكل]
+
+### مقارنة الحلول
+| المعيار | الحل 1 | الحل 2 | الحل 3 |
+|---------|--------|--------|--------|
+| السرعة | | | |
+| التكلفة | | | |
+| القابلية للتوسع | | | |
+| سهولة التنفيذ | | | |
+
+### التوصية النهائية
+الحل الأمثل مع التبرير${ctx}`
+      : `You are a problem-solving and innovation expert. Define the core problem, propose 3-5 solutions each with description, pros/cons, technical cost, timeline, and ideal use case. Include a comparison table and final recommendation.${ctx}`,
+
+    architect: ar
+      ? `أنت مهندس معمارية برمجيات خبير. صمّم البنية التقنية الكاملة:
+
+## 📐 هندسة المعمارية
+
+### 1. نظرة عامة على البنية
+[رسم ASCII للبنية العامة]
+
+### 2. مكونات النظام
+لكل مكون: الاسم، المسؤولية، التقنية المستخدمة
+
+### 3. تصميم قاعدة البيانات
+\`\`\`sql
+-- الجداول الرئيسية مع العلاقات
+CREATE TABLE [table_name] (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  -- الحقول...
+);
+\`\`\`
+
+### 4. API Design
+\`\`\`
+GET    /api/[resource]          - [الوصف]
+POST   /api/[resource]          - [الوصف]
+PUT    /api/[resource]/:id      - [الوصف]
+DELETE /api/[resource]/:id      - [الوصف]
+\`\`\`
+
+### 5. Data Flow
+وصف تفصيلي لكيفية تدفق البيانات بين المكونات
+
+### 6. قرارات التقنية
+لماذا اخترنا هذه التقنيات؟
+
+### 7. نقاط الضعف المحتملة والحلول
+Single points of failure وكيف نتجنبها${ctx}`
+      : `You are an expert software architect. Design complete technical architecture: system overview (ASCII diagram), components with responsibilities, database schema (SQL), API design (REST endpoints), data flow, technology decisions rationale, and potential failure points with solutions.${ctx}`,
+
+    research: ar
+      ? `أنت باحث متخصص في تجربة المستخدم وسلوك المستهلك. أجرِ بحثاً شاملاً:
+
+## 🔬 بحث المستخدمين
+
+### 1. الجمهور المستهدف
+- الشريحة الأساسية (Primary Audience)
+- الشريحة الثانوية (Secondary Audience)
+- الشريحة المستبعدة (Anti-Audience)
+
+### 2. User Personas التفصيلية
+
+#### Persona 1: [الاسم]
+- **الديموغرافيا:** العمر، الموقع، المهنة، الدخل
+- **الأهداف:** ما يريد تحقيقه
+- **نقاط الألم:** ما يزعجه
+- **السلوك الرقمي:** كيف يستخدم الإنترنت
+- **الدوافع:** لماذا سيستخدم المنتج
+- **الاعتراضات:** لماذا قد لا يستخدمه
+
+#### Persona 2: [الاسم]
+[نفس الهيكل]
+
+### 3. Customer Journey Map
+| المرحلة | الإجراء | الأفكار | المشاعر | نقاط الألم | الفرص |
+|---------|---------|---------|---------|------------|-------|
+| الاكتشاف | | | | | |
+| التقييم | | | | | |
+| الشراء | | | | | |
+| الاستخدام | | | | | |
+| الولاء | | | | | |
+
+### 4. أسئلة بحث المستخدم المقترحة
+10 أسئلة لمقابلات المستخدمين
+
+### 5. توصيات المنتج بناءً على البحث${ctx}`
+      : `You are a UX researcher and consumer behavior specialist. Research the target audience: primary/secondary/anti-audience segments, 2 detailed User Personas (demographics, goals, pain points, digital behavior, motivations, objections), Customer Journey Map, 10 user interview questions, and product recommendations based on research.${ctx}`,
+
+    innovation: ar
+      ? `أنت خبير ابتكار وتفكير إبداعي. فكّر خارج الصندوق:
+
+## ⚡ أفكار الابتكار
+
+### 1. الميزة "WOW" الرئيسية
+ميزة واحدة مذهلة لم يفكر فيها أحد تجعل المشروع لا يُنسى
+
+### 2. أفكار تمييزية (5 أفكار)
+لكل فكرة:
+- **الفكرة:** [الوصف]
+- **لماذا هي مبتكرة؟**
+- **كيف تُنفَّذ تقنياً؟** (بشكل مبسط)
+- **الأثر المتوقع على المستخدم**
+
+### 3. تطبيق الذكاء الاصطناعي
+3 طرق غير تقليدية لدمج AI في هذا المشروع تحديداً
+
+### 4. Gamification
+كيف نضيف عناصر اللعب لزيادة التفاعل؟
+
+### 5. الميزة الاجتماعية (Viral Loop)
+كيف يجعل المنتج المستخدمين يدعون أصدقاءهم تلقائياً؟
+
+### 6. نموذج العمل المبتكر
+طريقة غير تقليدية لتحقيق الإيرادات
+
+### 7. الرؤية المستقبلية (5 سنوات)
+أين يمكن أن يصل هذا المشروع؟${ctx}`
+      : `You are an innovation and creative thinking expert. Think outside the box: one "WOW" feature, 5 differentiating ideas (with description, why innovative, technical implementation, user impact), 3 unconventional AI applications, gamification strategy, viral loop mechanism, innovative business model, and 5-year vision.${ctx}`,
   };
 
   return prompts[agentId] || prompts.frontend;
@@ -1005,6 +1301,13 @@ function extractFiles(content: string, agentId: string): { name: string; content
     designer: { name: "design.css", lang: "css" },
     analyzer: { name: "analysis.md", lang: "markdown" },
     memory: { name: "README.md", lang: "markdown" },
+    strategy: { name: "strategy.md", lang: "markdown" },
+    ux: { name: "ux-design.md", lang: "markdown" },
+    brand: { name: "brand-identity.md", lang: "markdown" },
+    solutions: { name: "solutions.md", lang: "markdown" },
+    architect: { name: "architecture.md", lang: "markdown" },
+    research: { name: "user-research.md", lang: "markdown" },
+    innovation: { name: "innovation.md", lang: "markdown" },
   };
 
   // If content contains HTML tags, treat as HTML
