@@ -413,54 +413,61 @@ export default function AgentBuilderPage() {
   const cleanHtmlContent = (raw: string): string => {
     if (!raw) return raw;
 
-    // Step 1: Extract from markdown code block ```html ... ``` (most common)
+    // Step 1: Extract from ```html ... ``` block (highest priority)
     const codeBlockMatch = raw.match(/```html\s*([\s\S]*?)```/i);
-    if (codeBlockMatch) return codeBlockMatch[1].trim();
+    if (codeBlockMatch && codeBlockMatch[1].trim().length > 100) return codeBlockMatch[1].trim();
 
-    // Step 2: Extract from any code block ``` ... ```
+    // Step 2: Extract from any ``` block containing DOCTYPE
     const anyBlockMatch = raw.match(/```\w*\s*(<!DOCTYPE[\s\S]*?)```/i);
-    if (anyBlockMatch) return anyBlockMatch[1].trim();
+    if (anyBlockMatch && anyBlockMatch[1].trim().length > 100) return anyBlockMatch[1].trim();
 
-    // Step 3: Find DOCTYPE and extract everything from there
+    // Step 3: Find DOCTYPE anywhere in text (even if text comes before it)
     const doctypeIdx = raw.indexOf('<!DOCTYPE');
     if (doctypeIdx >= 0) {
-      // Find the closing </html> tag
       const closeHtml = raw.lastIndexOf('</html>');
-      if (closeHtml > doctypeIdx) return raw.slice(doctypeIdx, closeHtml + 7);
-      return raw.slice(doctypeIdx);
+      const extracted = closeHtml > doctypeIdx ? raw.slice(doctypeIdx, closeHtml + 7) : raw.slice(doctypeIdx);
+      if (extracted.length > 100) return extracted;
     }
 
-    // Step 4: Find <html and extract
+    // Step 4: Find <html tag anywhere
     const htmlTagIdx = raw.indexOf('<html');
     if (htmlTagIdx >= 0) {
       const closeHtml = raw.lastIndexOf('</html>');
-      if (closeHtml > htmlTagIdx) return raw.slice(htmlTagIdx, closeHtml + 7);
-      return raw.slice(htmlTagIdx);
+      const extracted = closeHtml > htmlTagIdx ? raw.slice(htmlTagIdx, closeHtml + 7) : raw.slice(htmlTagIdx);
+      if (extracted.length > 100) return extracted;
     }
 
-    // Step 5: Find <head> and extract full structure
-    const headIdx = raw.indexOf('<head>') >= 0 ? raw.indexOf('<head>') : raw.indexOf('<HEAD>');
+    // Step 5: Find <head> and reconstruct full document
+    const headIdx = raw.indexOf('<head');
     if (headIdx >= 0) {
       const closeHtml = raw.lastIndexOf('</html>');
-      if (closeHtml > headIdx) return raw.slice(headIdx, closeHtml + 7);
-      // Wrap in html tags
+      if (closeHtml > headIdx) return `<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n\${raw.slice(headIdx, closeHtml + 7)}`;
       const bodyClose = raw.lastIndexOf('</body>');
-      if (bodyClose > headIdx) return `<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n${raw.slice(headIdx, bodyClose + 7)}\n</html>`;
+      if (bodyClose > headIdx) return `<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n\${raw.slice(headIdx, bodyClose + 7)}\n</html>`;
     }
 
-    // Step 6: If content has <body> tag, wrap it
+    // Step 6: Find <body> and wrap it
     const bodyIdx = raw.indexOf('<body');
     if (bodyIdx >= 0) {
       const bodyClose = raw.lastIndexOf('</body>');
       const extracted = bodyClose > bodyIdx ? raw.slice(bodyIdx, bodyClose + 7) : raw.slice(bodyIdx);
-      return `<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>\n${extracted}\n</html>`;
+      return `<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family:Cairo,sans-serif;direction:rtl}</style></head>\n\${extracted}\n</html>`;
     }
 
-    // Step 7: Remove leading non-HTML text (like "html\n" or explanations before the code)
-    // Find first < character that starts a real tag
-    const firstTag = raw.search(/<(!DOCTYPE|html|head|body|div|section|header|nav|main|article|style|script)/i);
-    if (firstTag > 0 && firstTag < 500) {
-      return raw.slice(firstTag);
+    // Step 7: CRITICAL — Remove non-HTML text mixed with HTML tags
+    // Pattern: text like "div class=..." or ">text<" that appears as plain text
+    // If content has many < > characters but no proper HTML structure, it's mixed content
+    const tagCount = (raw.match(/</g) || []).length;
+    if (tagCount > 5) {
+      // Find the first structural HTML tag
+      const firstStructural = raw.search(/<(!DOCTYPE|html|head|body|header|nav|section|main|article|div|style|script)/i);
+      if (firstStructural >= 0 && firstStructural < raw.length * 0.3) {
+        // Reconstruct: everything from first structural tag
+        const extracted = raw.slice(firstStructural);
+        if (extracted.includes('</body>') || extracted.includes('</div>')) {
+          return `<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>\n<body>\n\${extracted}\n</body>\n</html>`;
+        }
+      }
     }
 
     return raw;

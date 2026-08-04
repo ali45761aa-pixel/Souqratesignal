@@ -1779,7 +1779,16 @@ function extractFiles(content: string, agentId: string): { name: string; content
     }
   }
 
-  if (namedBlocks.length > 0) return namedBlocks;
+  // If we found blocks, prioritize HTML for frontend agents
+  if (namedBlocks.length > 0) {
+    // For frontend/reviewer/auditor/game agents, always prefer HTML file
+    const htmlAgents = ["frontend", "reviewer", "auditor", "game", "seo", "mobile", "optimizer", "tester", "payment"];
+    if (htmlAgents.includes(agentId)) {
+      const htmlBlock = namedBlocks.find(b => b.language === "html");
+      if (htmlBlock) return [htmlBlock]; // Return only the HTML for preview
+    }
+    return namedBlocks;
+  }
 
   // Fallback: use agent-specific mapping
   const cleaned = content.replace(/```[\w]*\n?/g, "").replace(/```/g, "").trim();
@@ -1813,27 +1822,38 @@ function extractFiles(content: string, agentId: string): { name: string; content
     innovation: { name: "innovation.md", lang: "markdown" },
   };
 
-  // If content contains HTML tags, treat as HTML
-  // Only treat as HTML if it starts with DOCTYPE or <html (not just mentions them in comments)
-  // This prevents server.js with HTML comments from being misclassified
-  const trimmedContent = content.trimStart();
-  const isRealHtml = trimmedContent.startsWith("<!DOCTYPE") ||
-    trimmedContent.startsWith("<html") ||
-    /^[\s\S]{0,200}<!DOCTYPE\s+html/i.test(trimmedContent);
-  if (isRealHtml) {
-    const htmlStart = trimmedContent.indexOf("<!DOCTYPE") >= 0
-      ? content.indexOf("<!DOCTYPE")
-      : content.indexOf("<html");
-    if (htmlStart >= 0) {
-      return [{ name: "index.html", content: cleanHtmlOutput(content.slice(htmlStart)), language: "html" }];
+  // Check for HTML anywhere in content (AI sometimes puts text before DOCTYPE)
+  const doctypeIdx = content.indexOf("<!DOCTYPE");
+  const htmlTagIdx = content.indexOf("<html");
+  
+  // Has DOCTYPE anywhere
+  if (doctypeIdx >= 0) {
+    const closeHtml = content.lastIndexOf("</html>");
+    const htmlContent = closeHtml > doctypeIdx 
+      ? content.slice(doctypeIdx, closeHtml + 7) 
+      : content.slice(doctypeIdx);
+    if (htmlContent.length > 200) {
+      return [{ name: "index.html", content: htmlContent, language: "html" }];
     }
   }
-  // Secondary check: if content has full HTML structure (not just mentions)
+  
+  // Has <html tag anywhere
+  if (htmlTagIdx >= 0 && htmlTagIdx < content.length - 100) {
+    const closeHtml = content.lastIndexOf("</html>");
+    const htmlContent = closeHtml > htmlTagIdx 
+      ? content.slice(htmlTagIdx, closeHtml + 7) 
+      : content.slice(htmlTagIdx);
+    if (htmlContent.length > 200) {
+      return [{ name: "index.html", content: htmlContent, language: "html" }];
+    }
+  }
+  
+  // Has full HTML structure (head + body)
   const hasFullHtmlStructure = content.includes("<head>") && content.includes("</head>") &&
     content.includes("<body") && content.includes("</body>");
   if (hasFullHtmlStructure) {
-    const htmlStart = content.indexOf("<html") >= 0 ? content.indexOf("<html") : 0;
-    return [{ name: "index.html", content: content.slice(htmlStart), language: "html" }];
+    const start = htmlTagIdx >= 0 ? htmlTagIdx : 0;
+    return [{ name: "index.html", content: content.slice(start), language: "html" }];
   }
 
   const fileInfo = extMap[agentId];
