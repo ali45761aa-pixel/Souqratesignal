@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 
 import { detectTheme, generateDesignSystemCSS, getDesignInstructions, getUnsplashPhotos, DESIGN_THEMES } from '../lib/designSystem';
+import { searchUnsplashImages } from '../lib/integrations';
 const agentsRouter = Router();
 
 // ── Agent Definitions ─────────────────────────────────────────────────────────
@@ -548,7 +549,7 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
     }
   }
 
-  const systemPrompt = buildAgentPrompt(agentId, prompt, lang, richContext);
+  const systemPrompt = await buildAgentPrompt(agentId, prompt, lang, richContext);
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -795,7 +796,7 @@ agentsRouter.post("/execute-parallel", async (req: Request, res: Response) => {
           }
         }
 
-        const systemPrompt = buildAgentPrompt(step.agentId, prompt, lang, richContext);
+        const systemPrompt = await buildAgentPrompt(step.agentId, prompt, lang, richContext);
         const useReasoner = ["analyzer", "designer", "security", "auditor"].includes(step.agentId);
 
         const response = await fetch("https://api.deepseek.com/chat/completions", {
@@ -1007,14 +1008,20 @@ ${projectMemory}`;
 });
 
 // ── Agent Prompts ─────────────────────────────────────────────────────────────
-function buildAgentPrompt(agentId: string, prompt: string, lang: string, context: string): string {
+async function buildAgentPrompt(agentId: string, prompt: string, lang: string, context: string): Promise<string> {
   const ar = lang === "ar";
   const ctx = context ? `\n\nسياق المشروع حتى الآن:\n${context.slice(0, 2000)}` : "";
 
   const themeKey = detectTheme(prompt);
   const designCSS = generateDesignSystemCSS(themeKey);
   const designInstructions = getDesignInstructions(themeKey, prompt);
-  const unsplashPhotos = getUnsplashPhotos(prompt, 8);
+  // Use real Unsplash API if key available, else fallback to static IDs
+  let unsplashPhotos: string[] = [];
+  try {
+    unsplashPhotos = await searchUnsplashImages(prompt, 8);
+  } catch {
+    unsplashPhotos = getUnsplashPhotos(prompt, 8);
+  }
   const photoList = unsplashPhotos.map((url, i) => `Photo ${i+1}: ${url}`).join('\n');
     const prompts: Record<string, string> = {
     analyzer: ar
