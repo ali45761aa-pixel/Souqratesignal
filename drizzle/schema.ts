@@ -21,6 +21,8 @@ export const users = mysqlTable("users", {
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("login_method", { length: 64 }),
+  username: varchar("username", { length: 64 }).unique(),
+  passwordHash: varchar("password_hash", { length: 255 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   language: varchar("language", { length: 8 }).default("ar").notNull(),
   theme: varchar("theme", { length: 16 }).default("dark").notNull(),

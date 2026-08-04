@@ -8,6 +8,7 @@ import { adminRouter } from "./routers/admin";
 import { paymentsRouter } from "./routers/payments";
 import { crmRouter } from "./routers/crm";
 import { templatesRouter } from "./routers/templates";
+import { localAuthRouter } from "./routers/auth";
 
 export const appRouter = router({
   system: systemRouter,
@@ -18,6 +19,10 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+    register: localAuthRouter.register,
+    login: localAuthRouter.login,
+    meLocal: localAuthRouter.meLocal,
+    logoutLocal: localAuthRouter.logoutLocal,
   }),
   chat: chatRouter,
   projects: projectsRouter,

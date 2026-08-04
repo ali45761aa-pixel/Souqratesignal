@@ -931,6 +931,21 @@ export default function AgentBuilderPage() {
     setIsExecuting(false);
     setLoopPhase("idle");
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    // ── Auto-save project to DB ───────────────────────────────────────────────
+    try {
+      const finalFiles = deduplicateFiles(allFiles);
+      await fetch("/api/projects/save-project", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          files: finalFiles.map(f => ({ name: f.name, content: f.content.slice(0, 50000), language: f.language })),
+          totalCost: totalCost,
+          tokensUsed: totalTokens,
+          projectType: outputFormat || "html",
+        }),
+      });
+    } catch { /* silent fail — don't interrupt user experience */ }
     // Update liveHtmlFile with the final best HTML from projectMemory
     const finalHtmlFiles = deduplicateFiles(allFiles).filter(f => f.language === "html");
     if (finalHtmlFiles.length > 0) {

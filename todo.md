@@ -174,3 +174,15 @@
 - [x] Supabase PostgreSQL connected (21 tables migrated)
 - [x] Contabo deployment: Docker + Nginx virtual host for souqratesignal.online
 - [x] GitHub repo: ali45761aa-pixel/Souqratesignal
+
+## Phase 13: Authentication System + Project Persistence
+- [x] نظام تسجيل دخول بـ username/password (bcrypt + JWT 30 يوم)
+- [x] صفحة LoginPage احترافية بالعربية مع tabs login/register
+- [x] AuthGuard — حماية جميع الصفحات من الوصول بدون تسجيل دخول
+- [x] localAuthRouter: register + login + meLocal + logoutLocal
+- [x] إضافة username + password_hash لجدول users في Supabase
+- [x] حفظ المشاريع المكتملة تلقائياً في قاعدة البيانات (save-project endpoint)
+- [x] حفظ ملفات المشروع في جدول project_files
+- [x] حفظ version snapshot في جدول project_versions
+- [x] تحديث PlatformLayout لاستخدام meLocal/logoutLocal
+- [x] 0 TypeScript errors

@@ -31,9 +31,9 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const { data: user } = trpc.auth.me.useQuery();
-  const logout = trpc.auth.logout.useMutation({
-    onSuccess: () => window.location.href = "/",
+  const { data: user } = trpc.auth.meLocal.useQuery(undefined, { retry: false, refetchOnWindowFocus: false });
+  const logout = trpc.auth.logoutLocal.useMutation({
+    onSuccess: () => { window.location.href = "/login"; },
   });
 
   const navItems: NavItem[] = [

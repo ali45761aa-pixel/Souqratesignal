@@ -63,6 +63,8 @@ async function startServer() {
   app.use("/api/deploy", deployRouter);
   // QA system endpoints
   app.use("/api/qa", qaRouter);
+  // Save project + user projects endpoints
+  app.use("/api/projects", saveProjectRouter);
 
 
   // tRPC API
@@ -98,3 +100,4 @@ async function startServer() {
 
 startServer().catch(console.error);
 import { agentsRouter } from "../routes/agents";
+import saveProjectRouter from "../routes/saveProject";
