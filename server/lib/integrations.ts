@@ -69,9 +69,31 @@ export async function scrapeWebsite(url: string): Promise<string> {
 }
 
 // ── Tavily Search ─────────────────────────────────────────────
+// ── Serper Search (Google) ─────────────────────────────────────
+export async function serperSearch(query: string, maxResults = 5): Promise<string> {
+  const key = process.env.SERPER_API_KEY;
+  if (!key) return tavilySearch(query, maxResults); // fallback to Tavily
+  try {
+    const res = await axios.post('https://google.serper.dev/search', {
+      q: query, num: maxResults, gl: 'sa', hl: 'ar',
+    }, {
+      headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
+      timeout: 10000,
+    });
+    const answerBox = res.data.answerBox?.answer || res.data.answerBox?.snippet || '';
+    const organic = (res.data.organic || []).slice(0, 4)
+      .map((r: any) => `**${r.title}**\n${r.snippet || ''}`)
+      .join('\n\n');
+    const knowledgeGraph = res.data.knowledgeGraph?.description || '';
+    return `${answerBox}\n${knowledgeGraph}\n\n${organic}`.trim().slice(0, 2000);
+  } catch (e: any) {
+    return tavilySearch(query, maxResults); // fallback on error
+  }
+}
+
 export async function tavilySearch(query: string, maxResults = 5): Promise<string> {
   const key = process.env.TAVILY_API_KEY;
-  if (!key) return `[Tavily not configured — add TAVILY_API_KEY to env]`;
+  if (!key) return `[Search not configured — add SERPER_API_KEY or TAVILY_API_KEY]`;
   try {
     const res = await axios.post('https://api.tavily.com/search', {
       api_key: key, query, max_results: maxResults,
@@ -83,7 +105,7 @@ export async function tavilySearch(query: string, maxResults = 5): Promise<strin
       .join('\n\n');
     return `${answer}\n\n${results}`.slice(0, 2000);
   } catch (e: any) {
-    return `[Tavily error: ${e.message}]`;
+    return `[Search error: ${e.message}]`;
   }
 }
 

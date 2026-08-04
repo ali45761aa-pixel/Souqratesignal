@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request } from 'express';
 import multer from 'multer';
-import { deployToVercel, pushToGitHub, searchUnsplashImages, tavilySearch, scrapeWebsite } from '../lib/integrations';
+import { deployToVercel, pushToGitHub, searchUnsplashImages, serperSearch, tavilySearch, scrapeWebsite } from '../lib/integrations';
 
 const deployRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -232,7 +232,7 @@ deployRouter.post('/search', async (req, res) => {
   try {
     const { query } = req.body;
     if (!query) return res.status(400).json({ error: 'query required' });
-    const result = await tavilySearch(query);
+    const result = await serperSearch(query);
     res.json({ success: true, result });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
