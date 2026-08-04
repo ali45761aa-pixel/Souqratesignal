@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../_core/trpc";
+import { getDb, chatMessages } from "../db";
+import { eq, desc } from "drizzle-orm";
 
 // ── DeepSeek direct call (independent from Manus Forge) ──────────────────────
 async function callDeepSeek(messages: { role: string; content: string }[]): Promise<string> {
@@ -65,7 +67,13 @@ export const chatRouter = router({
 
   getMessages: publicProcedure
     .input(z.object({ projectId: z.number() }))
-    .query(async () => []),
+    .query(async ({ input }) => {
+      try {
+        const db = await getDb();
+        if (!db) return [];
+        return await db.select().from(chatMessages).where(eq(chatMessages.projectId, input.projectId)).orderBy(desc(chatMessages.createdAt)).limit(50);
+      } catch { return []; }
+    }),
 });
 
 function generateWorkflowSteps(prompt: string, lang: "ar" | "en") {

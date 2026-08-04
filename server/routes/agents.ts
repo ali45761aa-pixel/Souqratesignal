@@ -765,7 +765,15 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
     }
 
     const files = extractFiles(finalContent, agentId);
-    res.write(`data: ${JSON.stringify({ type: "done", content: finalContent, files, agentId, stepId, hadThinking: thinkingContent.length > 0 })}\n\n`);
+    // Estimate token usage (approximate: 1 token ≈ 4 chars)
+    const estimatedPromptTokens = Math.round(systemPrompt.length / 4);
+    const estimatedCompletionTokens = Math.round(finalContent.length / 4);
+    const usage = {
+      prompt_tokens: estimatedPromptTokens,
+      completion_tokens: estimatedCompletionTokens,
+      total_tokens: estimatedPromptTokens + estimatedCompletionTokens,
+    };
+    res.write(`data: ${JSON.stringify({ type: "done", content: finalContent, files, agentId, stepId, hadThinking: thinkingContent.length > 0, usage })}\n\n`);
     res.end();
   } catch (err: any) {
     res.write(`data: ${JSON.stringify({ type: "error", message: err.message })}\n\n`);
