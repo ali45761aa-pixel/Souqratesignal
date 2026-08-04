@@ -173,6 +173,11 @@ export default function AgentBuilderPage() {
   const [standbyPrompt, setStandbyPrompt] = useState("");
   const [isStandbyExecuting, setIsStandbyExecuting] = useState(false);
   const [isSplitView, setIsSplitView] = useState(false);
+  const [showLiveChat, setShowLiveChat] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [isCopiedShare, setIsCopiedShare] = useState(false);
+  const [isEditingFile, setIsEditingFile] = useState(false);
+  const [editedFileContent, setEditedFileContent] = useState("");
   const [htmlValidation, setHtmlValidation] = useState<{ score: number; seoScore?: number; perfScore?: number; mobileScore?: number; a11yScore?: number; errors: string[]; warnings: string[]; suggestions?: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
@@ -1942,8 +1947,3 @@ function deduplicateFiles(files: { name: string; content: string; language: stri
     return true;
   });
 }
-  const [showLiveChat, setShowLiveChat] = useState(false);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
-  const [isCopiedShare, setIsCopiedShare] = useState(false);
-  const [isEditingFile, setIsEditingFile] = useState(false);
-  const [editedFileContent, setEditedFileContent] = useState("");
