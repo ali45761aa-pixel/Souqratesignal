@@ -1064,7 +1064,11 @@ ${designInstructions}
 الهيكل الإلزامي للملف:
 ابدأ بـ <!DOCTYPE html><html lang="ar" dir="rtl"> مع meta charset وviewport وtitle حقيقي ووصف حقيقي.
 أضف Google Fonts من designSystem في <link>.
-في <style>: أدرج CSS Design System الكامل من designCSS ثم CSS مخصص للمشروع.
+في <style>: أدرج هذا الـ CSS Design System الكامل أولاً (انسخه حرفياً):
+\`\`\`css
+\${designCSS}
+\`\`\`
+ثم أضف CSS مخصص للمشروع بعده.
 
 الأقسام الإلزامية بالترتيب:
 1. NAV: sticky مع backdrop-filter، logo + روابط + زر CTA + hamburger للموبايل

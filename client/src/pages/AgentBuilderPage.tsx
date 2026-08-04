@@ -266,7 +266,20 @@ export default function AgentBuilderPage() {
 
   // Self-Healing: auto-fix JS errors (max 3 cycles)
   useEffect(() => {
-    const jsErrors = consoleMessages.filter(m => m.type === "error" && m.timestamp > Date.now() - 5000);
+    const jsErrors = consoleMessages.filter(m =>
+      m.type === "error" &&
+      m.timestamp > Date.now() - 5000 &&
+      // Ignore cross-origin script errors (can't fix these)
+      !m.message.includes("Script error") &&
+      !m.message.includes("cross-origin") &&
+      !m.message.includes("CORS") &&
+      // Ignore network/resource loading errors
+      !m.message.includes("Failed to load") &&
+      !m.message.includes("net::ERR") &&
+      !m.message.includes("ERR_") &&
+      // Only fix actual JS runtime errors
+      m.message.length > 10
+    );
     if (jsErrors.length === 0 || isHealing || healCycles >= 3 || !projectMemory) return;
     const currentHtml = projectMemory.allFiles.find(f => f.language === "html")?.content || liveHtmlFile || "";
     if (!currentHtml) return;
