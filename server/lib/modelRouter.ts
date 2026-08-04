@@ -111,7 +111,7 @@ async function streamWithClaude(opts: {
             await writer.write(encoder.encode(`data: ${JSON.stringify(usageMsg)}\n\n`));
             await writer.write(encoder.encode("data: [DONE]\n\n"));
           }
-        } catch {}
+        } catch (_e) { /* intentional */ }
       }
     }
     await writer.close();

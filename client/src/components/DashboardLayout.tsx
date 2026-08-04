@@ -105,6 +105,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: { children: React
   const lang = typeof window !== "undefined" ? (localStorage.getItem("lang") || "ar") : "ar";
   const activeMenuItem = menuItems.find(item => location === item.path || location.startsWith(item.path + "/"));
 
+   
   useEffect(() => {
     if (isCollapsed) setIsResizing(false);
   }, [isCollapsed]);

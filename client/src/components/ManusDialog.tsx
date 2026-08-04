@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,12 +27,6 @@ export function ManusDialog({
   onClose,
 }: ManusDialogProps) {
   const [internalOpen, setInternalOpen] = useState(open);
-
-  useEffect(() => {
-    if (!onOpenChange) {
-      setInternalOpen(open);
-    }
-  }, [open, onOpenChange]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (onOpenChange) {

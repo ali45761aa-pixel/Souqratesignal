@@ -214,7 +214,7 @@ export default function AgentBuilderPage() {
             files: projectMemory.allFiles.slice(0, 5).map(f => ({ name: f.name, content: f.content.slice(0, 5000), language: f.language })),
             savedAt: Date.now(),
           }));
-        } catch {}
+        } catch (_e) { /* intentional */ }
       }
     }, 30000);
     return () => { if (autoSaveRef.current) clearInterval(autoSaveRef.current); };
@@ -244,7 +244,7 @@ export default function AgentBuilderPage() {
           );
         }
       }
-    } catch {}
+    } catch (_e) { /* intentional */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -321,7 +321,7 @@ export default function AgentBuilderPage() {
               if (parsed.type === "done" && parsed.fixedHtml) {
                 fixedHtml = parsed.fixedHtml;
               }
-            } catch {}
+            } catch (_e) { /* intentional */ }
           }
         }
         if (fixedHtml.length > 100) {
@@ -394,7 +394,7 @@ export default function AgentBuilderPage() {
               }
               toast.success(lang === "ar" ? `✅ تم توليد ${format}! ${newFiles.length} ملف` : `✅ ${format} generated! ${newFiles.length} files`);
             }
-          } catch {}
+          } catch (_e) { /* intentional */ }
         }
       }
     } catch (e: any) {
@@ -628,7 +628,7 @@ export default function AgentBuilderPage() {
       });
       const data = await res.json();
       if (data.success) setHtmlValidation(data);
-    } catch {}
+    } catch (_e) { /* intentional */ }
   }, []);
 
   // Standby Mode — edit without rebuilding
@@ -657,7 +657,7 @@ export default function AgentBuilderPage() {
           try {
             const parsed = JSON.parse(line.slice(6));
             if (parsed.type === "chunk") newHtml += parsed.content;
-          } catch {}
+          } catch (_e) { /* intentional */ }
         }
       }
       // Extract HTML from response
@@ -889,7 +889,7 @@ export default function AgentBuilderPage() {
                   }]);
                 }
               }
-            } catch {}
+            } catch (_e) { /* intentional */ }
           }
         }
         // Fallback: if stream ended but step still "running", mark done with content
@@ -983,7 +983,7 @@ export default function AgentBuilderPage() {
                     setLiveHtmlFile(parsed.html);
                     toast.success(lang === "ar" ? "✅ تم تنظيف الكود بنجاح!" : "✅ Code cleaned successfully!");
                   }
-                } catch {}
+                } catch (_e) { /* intentional */ }
               }
             }
           }
@@ -1037,7 +1037,7 @@ export default function AgentBuilderPage() {
                     setLiveHtmlFile(parsed.improvedHtml);
                     toast.success(lang === "ar" ? "✅ تم تحسين الموقع تلقائياً!" : "✅ Website auto-improved!", { duration: 4000 });
                   }
-                } catch {}
+                } catch (_e) { /* intentional */ }
               }
             }
           }
@@ -1075,7 +1075,7 @@ export default function AgentBuilderPage() {
             else if (parsed.type === "thinking_done") { setPlan(prev => prev.map((s, j) => j === stepIndex ? { ...s, isThinking: false } : s)); }
             else if (parsed.type === "chunk") { content += parsed.content; setPlan(prev => prev.map((s, j) => j === stepIndex ? { ...s, streamingText: content } : s)); }
             else if (parsed.type === "done") { setPlan(prev => prev.map((s, j) => j === stepIndex ? { ...s, status: "done", output: content, files: parsed.files, streamingText: undefined, hadThinking: parsed.hadThinking } : s)); }
-          } catch {}
+          } catch (_e) { /* intentional */ }
         }
       }
     } catch (err: any) { setPlan(prev => prev.map((s, j) => j === stepIndex ? { ...s, status: "error", errorMessage: err?.message || "حدث خطأ غير متوقع" } : s)); }
@@ -1108,7 +1108,7 @@ export default function AgentBuilderPage() {
             const parsed = JSON.parse(line.slice(6));
             if (parsed.type === "chunk") { answer += parsed.content; setQaMessages(prev => { const msgs = [...prev]; msgs[msgs.length - 1] = { role: "assistant", content: answer, streaming: true }; return msgs; }); }
             else if (parsed.type === "done") { setQaMessages(prev => { const msgs = [...prev]; msgs[msgs.length - 1] = { role: "assistant", content: answer, streaming: false }; return msgs; }); }
-          } catch {}
+          } catch (_e) { /* intentional */ }
         }
       }
     } catch (err: any) { toast.error(err.message); }
@@ -2087,7 +2087,7 @@ export default function AgentBuilderPage() {
                             body: JSON.stringify({ html: htmlFile.content, scores, prompt, lang }),
                           });
                           const reader = criticRes.body?.getReader(); const decoder = new TextDecoder();
-                          if (reader) { while (true) { const { done, value } = await reader.read(); if (done) break; for (const line of decoder.decode(value, { stream: true }).split("\n")) { if (!line.startsWith("data: ")) continue; try { const p = JSON.parse(line.slice(6)); if (p.type === "done" && p.improvedHtml?.length > 1000) { setLiveHtmlFile(p.improvedHtml); toast.success(lang === "ar" ? "✅ تم التحسين!" : "✅ Improved!"); } } catch {} } } }
+                          if (reader) { while (true) { const { done, value } = await reader.read(); if (done) break; for (const line of decoder.decode(value, { stream: true }).split("\n")) { if (!line.startsWith("data: ")) continue; try { const p = JSON.parse(line.slice(6)); if (p.type === "done" && p.improvedHtml?.length > 1000) { setLiveHtmlFile(p.improvedHtml); toast.success(lang === "ar" ? "✅ تم التحسين!" : "✅ Improved!"); } } catch (_e) { /* intentional */ } } } }
                         } else {
                           toast.success(lang === "ar" ? `✅ جودة ممتازة: ${scores.overall}/100` : `✅ Excellent quality: ${scores.overall}/100`);
                         }
@@ -2142,7 +2142,7 @@ export default function AgentBuilderPage() {
                         try {
                           const res = await fetch("/api/qa/visual-qa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ html: htmlFile.content, lang }) });
                           const reader = res.body?.getReader(); const decoder = new TextDecoder();
-                          if (reader) { while (true) { const { done, value } = await reader.read(); if (done) break; for (const line of decoder.decode(value, { stream: true }).split("\n")) { if (!line.startsWith("data: ")) continue; try { const p = JSON.parse(line.slice(6)); if (p.type === "chunk") setQaVisualReport(prev => prev + p.content); if (p.type === "qa_data") setQaReport((prev: any) => ({ ...prev, aiScore: p.data })); } catch {} } } }
+                          if (reader) { while (true) { const { done, value } = await reader.read(); if (done) break; for (const line of decoder.decode(value, { stream: true }).split("\n")) { if (!line.startsWith("data: ")) continue; try { const p = JSON.parse(line.slice(6)); if (p.type === "chunk") setQaVisualReport(prev => prev + p.content); if (p.type === "qa_data") setQaReport((prev: any) => ({ ...prev, aiScore: p.data })); } catch (_e) { /* intentional */ } } } }
                         } catch (e: any) { toast.error((e as Error).message); }
                         setIsRunningVisualQA(false);
                       }} disabled={isRunningVisualQA} className="text-xs px-3 py-1.5 bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500/20 transition-colors flex items-center gap-1">
@@ -2198,7 +2198,7 @@ export default function AgentBuilderPage() {
                             try {
                               const res = await fetch("/api/qa/auto-fix", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ html: htmlFile.content, issues, lang }) });
                               const reader = res.body?.getReader(); const decoder = new TextDecoder(); let fixed = "";
-                              if (reader) { while (true) { const { done, value } = await reader.read(); if (done) break; for (const line of decoder.decode(value, { stream: true }).split("\n")) { if (!line.startsWith("data: ")) continue; try { const p = JSON.parse(line.slice(6)); if (p.type === "chunk") fixed += p.content; } catch {} } } }
+                              if (reader) { while (true) { const { done, value } = await reader.read(); if (done) break; for (const line of decoder.decode(value, { stream: true }).split("\n")) { if (!line.startsWith("data: ")) continue; try { const p = JSON.parse(line.slice(6)); if (p.type === "chunk") fixed += p.content; } catch (_e) { /* intentional */ } } } }
                               const m = fixed.match(/```html\s*([\s\S]*?)```/i);
                               if (m) { setLiveHtmlFile(m[1].trim()); toast.success(lang === "ar" ? "✅ تم الإصلاح!" : "✅ Fixed!"); setQaReport(null); }
                             } catch (e: any) { toast.error((e as Error).message); }

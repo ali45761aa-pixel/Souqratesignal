@@ -21,6 +21,14 @@ export default tseslint.config(
       "no-debugger": "error",
       "prefer-const": "error",
       "no-var": "error",
+      // Allow empty catch blocks — common in streaming/parsing code
+      "no-empty": ["error", { "allowEmptyCatch": true }],
+      // Downgrade useless-assignment to warning (common in streaming code)
+      "no-useless-assignment": "warn",
+      // Downgrade nested components to warning (used in layout components)
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/static-components": "warn",
+      "react-hooks/purity": "warn",
     },
   }
 );

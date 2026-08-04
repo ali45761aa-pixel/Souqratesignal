@@ -101,7 +101,7 @@ Then output JSON at the end:
             const parsed = JSON.parse(line.slice(6));
             const text = parsed.choices?.[0]?.delta?.content || "";
             if (text) { fullContent += text; res.write(`data: ${JSON.stringify({ type: "chunk", content: text })}\n\n`); }
-          } catch {}
+          } catch (_e) { /* intentional */ }
         }
       }
     }
@@ -112,7 +112,7 @@ Then output JSON at the end:
       try {
         const qaData = JSON.parse(jsonMatch[1]);
         res.write(`data: ${JSON.stringify({ type: "qa_data", data: qaData })}\n\n`);
-      } catch {}
+      } catch (_e) { /* intentional */ }
     }
 
     res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
@@ -190,7 +190,7 @@ Return ONLY the complete fixed HTML inside \`\`\`html ... \`\`\``;
             const parsed = JSON.parse(line.slice(6));
             const text = parsed.choices?.[0]?.delta?.content || "";
             if (text) res.write(`data: ${JSON.stringify({ type: "chunk", content: text })}\n\n`);
-          } catch {}
+          } catch (_e) { /* intentional */ }
         }
       }
     }
@@ -414,7 +414,7 @@ Return ONLY the complete clean HTML — no explanation, no comments, no markdown
               fullContent += text;
               res.write(`data: ${JSON.stringify({ type: "chunk", content: text })}\n\n`);
             }
-          } catch {}
+          } catch (_e) { /* intentional */ }
         }
       }
     }
@@ -587,7 +587,7 @@ ${html.slice(0, 10000)}
             fullContent += token;
             res.write(`data: ${JSON.stringify({ type: "chunk", content: token })}\n\n`);
           }
-        } catch {}
+        } catch (_e) { /* intentional */ }
       }
     }
 

@@ -249,7 +249,7 @@ streamRouter.post("/stream-build", async (req: Request, res: Response) => {
               fullContent += delta;
               res.write(`data: ${JSON.stringify({ type: "chunk", content: delta })}\n\n`);
             }
-          } catch {}
+          } catch (_e) { /* intentional */ }
         }
       }
     }

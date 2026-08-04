@@ -10,11 +10,10 @@ import { Separator } from "@/components/ui/separator";
 import {
   Sparkles, LayoutDashboard, FolderOpen, Users, CreditCard,
   FileText, Ticket, Settings, Key, Brain, Layers, Puzzle,
-  BookOpen, Bell, ChevronLeft, ChevronRight, Globe, Moon, Sun,
-  Menu, X, LogOut, BarChart3, MessageSquare, Zap, Code2, GitBranch, Wand2
+  BookOpen, Bell, ChevronLeft, ChevronRight,
+  Menu, X, LogOut, BarChart3, Zap, Code2, GitBranch, Wand2
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { toast } from "sonner";
 
 interface NavItem {
   icon: React.ReactNode;
@@ -67,6 +66,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     { id: "admin", label: lang === "ar" ? "الإدارة" : "Admin" },
   ];
 
+   
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}

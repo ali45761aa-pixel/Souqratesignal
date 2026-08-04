@@ -549,7 +549,7 @@ Rules:
     try {
       const parsed = JSON.parse(content);
       llmPlan = Array.isArray(parsed) ? parsed : parsed.plan || parsed.steps || [];
-    } catch {
+    } catch (_e) {
       // Try to extract array from content
       const match = content.match(/\[[\s\S]*\]/);
       if (match) { llmPlan = JSON.parse(match[0]); }
@@ -707,7 +707,7 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
             fullContent += delta.content;
             res.write(`data: ${JSON.stringify({ type: "chunk", content: delta.content })}\n\n`);
           }
-        } catch {}
+        } catch (_e) { /* intentional */ }
       }
     }
 
@@ -756,7 +756,7 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
                     contContent += contText;
                     res.write(`data: ${JSON.stringify({ type: "chunk", content: contText })}\n\n`);
                   }
-                } catch {}
+                } catch (_e) { /* intentional */ }
               }
             }
           }
@@ -764,7 +764,7 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
           const cleanSecond = contContent.replace(/^```html\s*/i, "").replace(/^```\s*/i, "").trimStart();
           finalContent = cleanFirst + "\n" + cleanSecond;
           res.write(`data: ${JSON.stringify({ type: "continuation_done" })}\n\n`);
-        } catch { /* Continuation failed silently — keep original */ }
+        } catch (_e) { /* Continuation failed silently — keep original */ }
       }
     }
 
@@ -851,7 +851,7 @@ Strict rules:
         try {
           const delta = JSON.parse(data).choices?.[0]?.delta?.content;
           if (delta) { fullContent += delta; res.write(`data: ${JSON.stringify({ type: "chunk", content: delta })}\n\n`); }
-        } catch {}
+        } catch (_e) { /* intentional */ }
       }
     }
 
@@ -1020,7 +1020,7 @@ Project: ${prompt}`,
         try {
           const delta = JSON.parse(data).choices?.[0]?.delta?.content;
           if (delta) { fullContent += delta; res.write(`data: ${JSON.stringify({ type: "chunk", content: delta })}\n\n`); }
-        } catch {}
+        } catch (_e) { /* intentional */ }
       }
     }
 
@@ -1094,7 +1094,7 @@ ${projectMemory}`;
         try {
           const delta = JSON.parse(data).choices?.[0]?.delta?.content;
           if (delta) res.write(`data: ${JSON.stringify({ type: "chunk", content: delta })}\n\n`);
-        } catch {}
+        } catch (_e) { /* intentional */ }
       }
     }
     res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
@@ -1114,6 +1114,7 @@ async function buildAgentPrompt(agentId: string, prompt: string, lang: string, c
   const designCSS = generateDesignSystemCSS(themeKey);
   const designInstructions = getDesignInstructions(themeKey, prompt);
   // Use real Unsplash API if key available, else fallback to static IDs
+   
   let unsplashPhotos: string[] = [];
   try {
     unsplashPhotos = await searchUnsplashImages(prompt, 8);

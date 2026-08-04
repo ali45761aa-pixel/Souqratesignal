@@ -5,23 +5,25 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { LangProvider } from "./contexts/LangContext";
 import PlatformLayout from "./components/PlatformLayout";
-import ChatPage from "./pages/ChatPage";
-import BuilderPage from "./pages/BuilderPage";
-import AgentBuilderPage from "./pages/AgentBuilderPage";
-import DashboardPage from "./pages/DashboardPage";
-import ProjectsPage from "./pages/ProjectsPage";
-import AdminPage from "./pages/AdminPage";
-import TemplatesPage from "./pages/TemplatesPage";
-import CRMPage from "./pages/CRMPage";
-import PaymentsPage from "./pages/PaymentsPage";
-import SettingsPage from "./pages/SettingsPage";
-import LivePreviewPage from "./pages/LivePreviewPage";
-import VersionControlPage from "./pages/VersionControlPage";
-import NotFound from "./pages/NotFound";
-import Home from "./pages/Home";
-import LoginPage from "./pages/LoginPage";
+import { lazy, Suspense, useEffect } from "react";
 import { trpc } from "./lib/trpc";
-import { useEffect } from "react";
+
+// Lazy-load heavy pages for better initial bundle size
+const ChatPage = lazy(() => import("./pages/ChatPage"));
+const BuilderPage = lazy(() => import("./pages/BuilderPage"));
+const AgentBuilderPage = lazy(() => import("./pages/AgentBuilderPage"));
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
+const TemplatesPage = lazy(() => import("./pages/TemplatesPage"));
+const CRMPage = lazy(() => import("./pages/CRMPage"));
+const PaymentsPage = lazy(() => import("./pages/PaymentsPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const LivePreviewPage = lazy(() => import("./pages/LivePreviewPage"));
+const VersionControlPage = lazy(() => import("./pages/VersionControlPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Home = lazy(() => import("./pages/Home"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
 
 // ── Auth Guard ────────────────────────────────────────────────────────────────
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -63,6 +65,7 @@ function Router() {
     return (
       <AuthGuard>
         <PlatformLayout>
+          <Suspense fallback={<div className="flex-1 flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div>}>
           <Switch>
             <Route path="/chat" component={() => <ChatPage />} />
             <Route path="/builder" component={() => <BuilderPage />} />
@@ -83,18 +86,21 @@ function Router() {
             <Route path="/stats" component={() => <DashboardPage />} />
             <Route component={NotFound} />
           </Switch>
+          </Suspense>
         </PlatformLayout>
       </AuthGuard>
     );
   }
 
   return (
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div>}>
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/login" component={LoginPage} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
+    </Suspense>
   );
 }
 
