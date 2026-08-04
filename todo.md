@@ -188,13 +188,14 @@
 - [x] 0 TypeScript errors
 
 ## Phase 15: Security & Architecture Fixes (from audit report)
-- [ ] Rate Limiting على جميع الـ endpoints (express-rate-limit)
-- [ ] Input Sanitization لمنع XSS وSQL injection
-- [ ] تحسين آلية التحقق من الدفع (إضافة amount verification)
-- [ ] إصلاح drizzle/relations.ts — إضافة العلاقات الحقيقية
-- [ ] إزالة Mock DB fallback من projects.ts
-- [ ] توحيد callDeepSeek في chat.ts مع modelRouter
-- [ ] حذف vite.config.ts.bak
-- [ ] تقسيم agents.ts إلى ملفات منفصلة
-- [ ] إضافة caching للـ templates وnتائج LLM
-- [ ] إضافة اختبارات للـ endpoints الحرجة
+- [x] Rate Limiting على جميع الـ endpoints (express-rate-limit) — 200/15min عام، 30/15min AI، 10/15min auth
+- [x] Input Sanitization — Zod validation + memo format validation في walletMonitor
+- [x] تحسين آلية التحقق من الدفع — amount verification لـ BSC + time window 24h + memo regex validation
+- [x] إصلاح drizzle/relations.ts — 21 جدول مع علاقات كاملة
+- [x] إزالة Mock DB fallback من projects.ts — proper error handling
+- [x] توحيد callDeepSeek في chat.ts مع modelRouter — callWithBestModel
+- [x] حذف vite.config.ts.bak
+- [x] توحيد execute-parallel مع modelRouter
+- [x] إضافة caching — planCache + designCache + templateCache في server/lib/cache.ts
+- [ ] تقسيم agents.ts إلى ملفات منفصلة (مستقبلي)
+- [ ] إضافة اختبارات للـ endpoints الحرجة (مستقبلي)
