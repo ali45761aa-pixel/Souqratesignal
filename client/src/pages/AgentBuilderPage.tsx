@@ -14,7 +14,7 @@ import {
   TestTube, BookOpen, Rocket, Settings, MessageCircle
   , Target, Layers, Lightbulb, GitBranch, Microscope
 } from "lucide-react";
-import { ExternalLink, Github, Upload, Server, Maximize2, Minimize2, Terminal, History, RotateCcw, DollarSign, Wifi, WifiOff } from "lucide-react";
+import { ExternalLink, Github, Upload, Server, Maximize2, Minimize2, Terminal, History, RotateCcw, DollarSign, Wifi, WifiOff, Wrench, Code2 as ReactIcon, FileCode, Zap as BotIcon, Layout } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface PlanStep {
@@ -172,14 +172,64 @@ export default function AgentBuilderPage() {
   const [isStandbyMode, setIsStandbyMode] = useState(false);
   const [standbyPrompt, setStandbyPrompt] = useState("");
   const [isStandbyExecuting, setIsStandbyExecuting] = useState(false);
-  const [htmlValidation, setHtmlValidation] = useState<{ score: number; errors: string[]; warnings: string[] } | null>(null);
+  const [htmlValidation, setHtmlValidation] = useState<{ score: number; seoScore?: number; perfScore?: number; mobileScore?: number; a11yScore?: number; errors: string[]; warnings: string[]; suggestions?: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [isHealing, setIsHealing] = useState(false);
+  const [healCycles, setHealCycles] = useState(0);
+  const [outputFormat, setOutputFormat] = useState<"html" | "react" | "python" | "telegram" | "landing">("html");
+  const [isGeneratingFormat, setIsGeneratingFormat] = useState(false);
+  const [showFormatMenu, setShowFormatMenu] = useState(false);
+  const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Total cost calculation
   const totalCost = useMemo(() => observability.reduce((acc, e) => acc + e.costUSD, 0), [observability]);
   const totalTokens = useMemo(() => observability.reduce((acc, e) => acc + e.tokensIn + e.tokensOut, 0), [observability]);
+
+  // Auto-save to localStorage every 30s
+  useEffect(() => {
+    autoSaveRef.current = setInterval(() => {
+      if (projectMemory) {
+        try {
+          localStorage.setItem("nexus_autosave", JSON.stringify({
+            prompt,
+            files: projectMemory.allFiles.slice(0, 5).map(f => ({ name: f.name, content: f.content.slice(0, 5000), language: f.language })),
+            savedAt: Date.now(),
+          }));
+        } catch {}
+      }
+    }, 30000);
+    return () => { if (autoSaveRef.current) clearInterval(autoSaveRef.current); };
+  }, [projectMemory, prompt]);
+
+  // Load auto-save on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("nexus_autosave");
+      if (saved) {
+        const data = JSON.parse(saved);
+        const ageMin = (Date.now() - data.savedAt) / 60000;
+        if (ageMin < 60 && data.files?.length > 0) {
+          // Show restore option
+          toast(lang === "ar"
+            ? `💾 يوجد مشروع محفوظ من ${Math.round(ageMin)} دقيقة مضت — هل تريد استعادته؟`
+            : `💾 Saved project from ${Math.round(ageMin)} min ago — restore it?`,
+            {
+              action: { label: lang === "ar" ? "استعادة" : "Restore", onClick: () => {
+                setProjectMemory({ prompt: data.prompt || "", plan: [], allFiles: data.files, summary: "Auto-saved project", createdAt: data.savedAt });
+                const html = data.files.find((f: any) => f.language === "html");
+                if (html) { setLiveHtmlFile(html.content); setActiveTab("preview"); }
+                toast.success(lang === "ar" ? "✅ تم استعادة المشروع" : "✅ Project restored");
+              }},
+              duration: 10000,
+            }
+          );
+        }
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -200,6 +250,147 @@ export default function AgentBuilderPage() {
 
   // Scroll console to bottom
   useEffect(() => { consoleEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [consoleMessages]);
+
+  // Self-Healing: auto-fix JS errors (max 3 cycles)
+  useEffect(() => {
+    const jsErrors = consoleMessages.filter(m => m.type === "error" && m.timestamp > Date.now() - 5000);
+    if (jsErrors.length === 0 || isHealing || healCycles >= 3 || !projectMemory) return;
+    const currentHtml = projectMemory.allFiles.find(f => f.language === "html")?.content || liveHtmlFile || "";
+    if (!currentHtml) return;
+
+    const heal = async () => {
+      setIsHealing(true);
+      setHealCycles(c => c + 1);
+      toast(lang === "ar"
+        ? `🔧 تم اكتشاف ${jsErrors.length} خطأ — جاري الإصلاح التلقائي...`
+        : `🔧 ${jsErrors.length} error(s) detected — auto-fixing...`,
+        { duration: 4000 }
+      );
+      try {
+        const res = await fetch("/api/agents/self-heal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            html: currentHtml,
+            errors: jsErrors.map(e => e.message),
+            prompt,
+            lang,
+          }),
+        });
+        const reader = res.body?.getReader();
+        if (!reader) return;
+        const decoder = new TextDecoder();
+        let fixedHtml = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          for (const line of decoder.decode(value, { stream: true }).split("\n")) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const parsed = JSON.parse(line.slice(6));
+              if (parsed.type === "done" && parsed.fixedHtml) {
+                fixedHtml = parsed.fixedHtml;
+              }
+            } catch {}
+          }
+        }
+        if (fixedHtml.length > 100) {
+          // Save version inline (can't use saveVersion here due to hook ordering)
+          setVersions(prev => [...prev.slice(-9), {
+            id: Date.now().toString(),
+            prompt: prompt,
+            files: [...projectMemory.allFiles],
+            createdAt: Date.now(),
+            label: `قبل الإصلاح التلقائي #${healCycles}`,
+          }]);
+          const updatedFiles = projectMemory.allFiles.map(f =>
+            f.language === "html" ? { ...f, content: fixedHtml } : f
+          );
+          setProjectMemory(prev => prev ? { ...prev, allFiles: updatedFiles } : null);
+          setLiveHtmlFile(fixedHtml);
+          setConsoleMessages([]); // clear errors after fix
+          toast.success(lang === "ar" ? "✅ تم إصلاح الأخطاء تلقائياً!" : "✅ Errors auto-fixed!");
+        }
+      } catch (e: any) {
+        toast.error(lang === "ar" ? "فشل الإصلاح التلقائي" : "Auto-fix failed");
+      } finally {
+        setIsHealing(false);
+      }
+    };
+    // Debounce: wait 3 seconds after error appears before healing
+    const timer = setTimeout(heal, 3000);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consoleMessages]);
+
+  // Generate Output Format
+  const handleGenerateFormat = useCallback(async (format: string) => {
+    if (!prompt || isGeneratingFormat) return;
+    setIsGeneratingFormat(true);
+    setShowFormatMenu(false);
+    const currentHtml = projectMemory?.allFiles.find(f => f.language === "html")?.content || "";
+    toast(lang === "ar" ? `⚙️ جاري توليد ${format}...` : `⚙️ Generating ${format}...`, { duration: 5000 });
+    try {
+      const res = await fetch("/api/agents/generate-format", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, format, existingHtml: currentHtml, lang }),
+      });
+      const reader = res.body?.getReader();
+      if (!reader) return;
+      const decoder = new TextDecoder();
+      let content = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value, { stream: true }).split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const parsed = JSON.parse(line.slice(6));
+            if (parsed.type === "chunk") content += parsed.content;
+            else if (parsed.type === "done" && parsed.files?.length) {
+              const newFiles = parsed.files as { name: string; content: string; language: string }[];
+              if (projectMemory) {
+                saveVersion(projectMemory.allFiles, `قبل تحويل ${format}`);
+                const merged = [...projectMemory.allFiles.filter(f => !newFiles.find(nf => nf.name === f.name)), ...newFiles];
+                setProjectMemory(prev => prev ? { ...prev, allFiles: merged } : null);
+                const htmlF = newFiles.find(f => f.language === "html");
+                if (htmlF) setLiveHtmlFile(htmlF.content);
+              } else {
+                const htmlF = newFiles.find(f => f.language === "html");
+                setProjectMemory({ prompt, plan: [], allFiles: newFiles, summary: `${format} project`, createdAt: Date.now() });
+                if (htmlF) { setLiveHtmlFile(htmlF.content); setActiveTab("preview"); }
+                else setActiveTab("files");
+              }
+              toast.success(lang === "ar" ? `✅ تم توليد ${format}! ${newFiles.length} ملف` : `✅ ${format} generated! ${newFiles.length} files`);
+            }
+          } catch {}
+        }
+      }
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setIsGeneratingFormat(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prompt, projectMemory, lang, isGeneratingFormat]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === "Enter") { e.preventDefault(); if (plan.length > 0 && !isExecuting) handleExecuteAll(); else if (prompt.trim()) handleGeneratePlan(); }
+        if (e.key === "s") { e.preventDefault(); if (projectMemory) {
+          setVersions(prev => [...prev.slice(-9), { id: Date.now().toString(), prompt: prompt, files: [...projectMemory.allFiles], createdAt: Date.now(), label: `v${prev.length + 1} — ${new Date().toLocaleTimeString()}` }]);
+          toast.success("✅ Version saved");
+        }}
+      }
+      if (e.key === "Escape") { setIsFullscreen(false); setShowDeployMenu(false); setShowFormatMenu(false); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan, isExecuting, prompt, projectMemory]);
 
   // Listen for iframe console messages
   useEffect(() => {
@@ -917,6 +1108,16 @@ export default function AgentBuilderPage() {
             </div>
           </div>
         )}
+      {/* ── Self-Healing Indicator ── */}
+      {isHealing && (
+        <div className="shrink-0 bg-amber-500/10 border-b border-amber-500/20 px-3 py-2">
+          <div className="max-w-4xl mx-auto flex items-center gap-2 text-amber-400 text-xs">
+            <Wrench className="w-3.5 h-3.5 animate-spin" />
+            <span>{lang === "ar" ? "🔧 الوكيل يصلح الأخطاء تلقائياً..." : "🔧 Agent is auto-fixing errors..."}</span>
+            <span className="text-amber-400/50">({lang === "ar" ? `دورة ${healCycles}/3` : `cycle ${healCycles}/3`})</span>
+          </div>
+        </div>
+      )}
         {/* ── Hidden file input for ZIP import ── */}
         <input
           ref={fileInputRef}
@@ -1173,14 +1374,59 @@ export default function AgentBuilderPage() {
               </div>
               {!htmlFile && isExecuting && <span className="text-xs text-primary/70 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />{lang === "ar" ? "جاري البناء..." : "Building..."}</span>}
               {!htmlFile && !isExecuting && plan.length > 0 && <span className="text-xs text-muted-foreground">{lang === "ar" ? "لا يوجد ملف HTML بعد" : "No HTML file yet"}</span>}
+              {/* Output Format Menu */}
+              <div className="relative ms-auto">
+                <button
+                  onClick={() => setShowFormatMenu(v => !v)}
+                  disabled={isGeneratingFormat}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-card border border-border text-foreground rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  {isGeneratingFormat ? <Loader2 className="w-3 h-3 animate-spin" /> : <Code2 className="w-3 h-3" />}
+                  <span className="hidden sm:inline">{lang === "ar" ? "تحويل" : "Convert"}</span>
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+                {showFormatMenu && (
+                  <div className="absolute top-full end-0 mt-1 bg-card border border-border rounded-xl shadow-2xl z-50 min-w-[180px] py-1 text-xs overflow-hidden">
+                    <p className="px-3 py-1.5 text-muted-foreground/60 border-b border-border">{lang === "ar" ? "اختر صيغة الإخراج" : "Output format"}</p>
+                    {[
+                      { id: "react", icon: "⚛️", label: "React App", sub: "CDN React 18" },
+                      { id: "python", icon: "🐍", label: "Python Script", sub: "+ requirements.txt" },
+                      { id: "telegram", icon: "🤖", label: "Telegram Bot", sub: "python-telegram-bot" },
+                      { id: "landing", icon: "🚀", label: "Landing Page", sub: "Tailwind + Alpine" },
+                    ].map(f => (
+                      <button key={f.id} onClick={() => handleGenerateFormat(f.id)} className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted/50 transition-colors text-start">
+                        <span>{f.icon}</span>
+                        <div><p className="font-medium">{f.label}</p><p className="text-muted-foreground/50">{f.sub}</p></div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* SEO/Validate button */}
+              {htmlFile && (
+                <button
+                  onClick={() => handleValidateHtml(htmlFile.content)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-card border border-border text-muted-foreground rounded-lg hover:text-foreground transition-colors"
+                  title={lang === "ar" ? "تحليل SEO والأداء" : "SEO & Performance"}
+                >
+                  <Search className="w-3 h-3" />
+                  <span className="hidden sm:inline">SEO</span>
+                </button>
+              )}
+              {/* Validation score badge */}
+              {htmlValidation && (
+                <div className={cn("flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg border font-bold", htmlValidation.score >= 80 ? "bg-green-500/10 border-green-500/20 text-green-400" : htmlValidation.score >= 60 ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400" : "bg-red-500/10 border-red-500/20 text-red-400")}>
+                  {htmlValidation.score}/100
+                </div>
+              )}
             </div>
             <div className="flex-1 overflow-auto bg-muted/20 flex items-start justify-center p-4">
               {htmlFile ? (
-                <div className="bg-white rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
-                  style={{ width: device === "desktop" ? "100%" : device === "tablet" ? "768px" : "390px", maxWidth: "100%", minHeight: "500px" }}>
-                  <iframe ref={iframeRef} srcDoc={injectConsoleInterceptor(htmlFile.content)} className="w-full border-0" style={{ height: "600px" }} sandbox="allow-scripts allow-same-origin allow-forms" title="Preview" />
-                </div>
-              ) : (
+               <div className="bg-white rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
+                 style={{ width: device === "desktop" ? "100%" : device === "tablet" ? "768px" : "390px", maxWidth: "100%", minHeight: "500px" }}>
+                 <iframe ref={iframeRef} srcDoc={injectConsoleInterceptor(htmlFile.content)} className="w-full border-0" style={{ height: "600px" }} sandbox="allow-scripts allow-same-origin allow-forms" title="Preview" />
+               </div>
+             ) : (
                 <div className="text-center text-muted-foreground py-20">
                   <Eye className="w-12 h-12 mx-auto mb-3 opacity-30" />
                   {isExecuting ? (
@@ -1200,6 +1446,47 @@ export default function AgentBuilderPage() {
                     </div>
                   ) : (
                     <p>{lang === "ar" ? "اكتب برومبتك وابدأ البناء" : "Write your prompt and start building"}</p>
+                  )}
+                </div>
+              )}
+              {/* SEO/Performance Report Panel */}
+              {htmlValidation && (
+                <div className="w-full max-w-2xl mt-4 mx-auto rounded-xl border border-border bg-card/80 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold">{lang === "ar" ? "📊 تقرير الجودة" : "📊 Quality Report"}</h3>
+                    <button onClick={() => setHtmlValidation(null)} className="text-muted-foreground/50 hover:text-muted-foreground text-xs">✕</button>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                    {[
+                      { label: "SEO", score: htmlValidation.seoScore ?? htmlValidation.score, icon: "🔍" },
+                      { label: lang === "ar" ? "أداء" : "Perf", score: htmlValidation.perfScore ?? 80, icon: "⚡" },
+                      { label: lang === "ar" ? "موبايل" : "Mobile", score: htmlValidation.mobileScore ?? 80, icon: "📱" },
+                      { label: lang === "ar" ? "وصول" : "A11y", score: htmlValidation.a11yScore ?? 80, icon: "♿" },
+                    ].map(item => (
+                      <div key={item.label} className={cn("rounded-lg p-2 text-center border", item.score >= 80 ? "bg-green-500/10 border-green-500/20" : item.score >= 60 ? "bg-yellow-500/10 border-yellow-500/20" : "bg-red-500/10 border-red-500/20")}>
+                        <div className="text-lg">{item.icon}</div>
+                        <div className={cn("text-xl font-bold", item.score >= 80 ? "text-green-400" : item.score >= 60 ? "text-yellow-400" : "text-red-400")}>{item.score}</div>
+                        <div className="text-xs text-muted-foreground">{item.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {htmlValidation.errors.length > 0 && (
+                    <div className="mb-2">
+                      <p className="text-xs font-medium text-red-400 mb-1">❌ {lang === "ar" ? "أخطاء" : "Errors"}</p>
+                      {htmlValidation.errors.map((e, i) => <p key={i} className="text-xs text-red-300/80 ps-2">• {e}</p>)}
+                    </div>
+                  )}
+                  {htmlValidation.warnings.length > 0 && (
+                    <div className="mb-2">
+                      <p className="text-xs font-medium text-yellow-400 mb-1">⚠️ {lang === "ar" ? "تحذيرات" : "Warnings"}</p>
+                      {htmlValidation.warnings.slice(0, 5).map((w, i) => <p key={i} className="text-xs text-yellow-300/80 ps-2">• {w}</p>)}
+                    </div>
+                  )}
+                  {htmlValidation.suggestions && htmlValidation.suggestions.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-blue-400 mb-1">💡 {lang === "ar" ? "اقتراحات" : "Suggestions"}</p>
+                      {htmlValidation.suggestions.slice(0, 3).map((s, i) => <p key={i} className="text-xs text-blue-300/80 ps-2">• {s}</p>)}
+                    </div>
                   )}
                 </div>
               )}

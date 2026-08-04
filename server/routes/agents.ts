@@ -607,6 +607,267 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
   }
 });
 
+// ── Self-Healing endpoint — fix JS errors automatically ──────────────────────
+agentsRouter.post("/self-heal", async (req: Request, res: Response) => {
+  const { html, errors, prompt, lang = "ar" } = req.body;
+  if (!html || !errors?.length) { res.status(400).json({ error: "html and errors required" }); return; }
+
+  const key = process.env.DEEPSEEK_API_KEY;
+  if (!key) { res.status(500).json({ error: "DEEPSEEK_API_KEY not configured" }); return; }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const errorList = errors.slice(0, 10).join("\n");
+  const systemPrompt = lang === "ar"
+    ? `أنت وكيل إصلاح أخطاء JavaScript متخصص. لديك كود HTML مع أخطاء JS محددة.
+مهمتك: إصلاح جميع الأخطاء وإرجاع الكود الكامل المُصلَح.
+
+قواعد صارمة:
+1. أرجع الكود HTML الكامل فقط داخل \`\`\`html ... \`\`\`
+2. لا تحذف أي ميزة موجودة — فقط أصلح الأخطاء
+3. تأكد أن كل الـ functions معرّفة قبل استخدامها
+4. أصلح مشاكل undefined variables وmissing functions وsyntax errors
+5. إذا كان الخطأ في مكتبة خارجية، استبدلها بكود vanilla JS`
+    : `You are a specialized JavaScript error-fixing agent. You have HTML code with specific JS errors.
+Your task: Fix all errors and return the complete fixed code.
+
+Strict rules:
+1. Return ONLY the complete HTML inside \`\`\`html ... \`\`\`
+2. Do NOT remove any existing feature — only fix errors
+3. Ensure all functions are defined before use
+4. Fix undefined variables, missing functions, and syntax errors
+5. If error is in an external library, replace with vanilla JS`;
+
+  try {
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+      signal: AbortSignal.timeout(120000),
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `الأخطاء المكتشفة:\n${errorList}\n\nالكود الحالي:\n\`\`\`html\n${html.slice(0, 12000)}\n\`\`\`` },
+        ],
+        max_tokens: 12000, temperature: 0.2, stream: true,
+      }),
+    });
+
+    if (!response.ok) { res.write(`data: ${JSON.stringify({ type: "error", message: await response.text() })}\n\n`); res.end(); return; }
+
+    const reader = response.body?.getReader();
+    if (!reader) { res.end(); return; }
+    const decoder = new TextDecoder();
+    let fullContent = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const line of decoder.decode(value, { stream: true }).split("\n")) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") continue;
+        try {
+          const delta = JSON.parse(data).choices?.[0]?.delta?.content;
+          if (delta) { fullContent += delta; res.write(`data: ${JSON.stringify({ type: "chunk", content: delta })}\n\n`); }
+        } catch {}
+      }
+    }
+
+    // Extract fixed HTML
+    const htmlMatch = fullContent.match(/```html\n?([\s\S]*?)```/) || fullContent.match(/(<!DOCTYPE[\s\S]*<\/html>)/i);
+    const fixedHtml = htmlMatch ? (htmlMatch[1] || htmlMatch[0]).trim() : "";
+    res.write(`data: ${JSON.stringify({ type: "done", fixedHtml, success: fixedHtml.length > 100 })}\n\n`);
+    res.end();
+  } catch (err: any) {
+    res.write(`data: ${JSON.stringify({ type: "error", message: err.message })}\n\n`);
+    res.end();
+  }
+});
+
+// ── Parallel execute — run independent agents concurrently ────────────────────
+agentsRouter.post("/execute-parallel", async (req: Request, res: Response) => {
+  const { prompt, steps, lang = "ar", projectContext = "", previousFiles = [] } = req.body;
+  if (!prompt || !steps?.length) { res.status(400).json({ error: "prompt and steps required" }); return; }
+
+  const key = process.env.DEEPSEEK_API_KEY;
+  if (!key) { res.status(500).json({ error: "DEEPSEEK_API_KEY not configured" }); return; }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  try {
+    // Run all steps in parallel using Promise.all
+    const results = await Promise.allSettled(
+      steps.map(async (step: { id: string; agentId: string }) => {
+        const agent = AGENTS[step.agentId as keyof typeof AGENTS];
+        if (!agent) return { stepId: step.id, agentId: step.agentId, content: "", files: [], error: "Unknown agent" };
+
+        let richContext = projectContext;
+        if (previousFiles?.length) {
+          richContext += "\n\n=== Previous Files ===\n";
+          for (const f of previousFiles.slice(-3)) {
+            richContext += `\n--- ${f.name} ---\n${f.content.slice(0, 1500)}\n`;
+          }
+        }
+
+        const systemPrompt = buildAgentPrompt(step.agentId, prompt, lang, richContext);
+        const useReasoner = ["analyzer", "designer", "security", "auditor"].includes(step.agentId);
+
+        const response = await fetch("https://api.deepseek.com/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+          signal: AbortSignal.timeout(120000),
+          body: JSON.stringify({
+            model: useReasoner ? "deepseek-reasoner" : "deepseek-chat",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: `المشروع: ${prompt}\n\nنفّذ مهمتك كـ ${agent.nameAr}` },
+            ],
+            max_tokens: useReasoner ? 8000 : 6000, temperature: 0.5, stream: false,
+          }),
+        });
+
+        if (!response.ok) return { stepId: step.id, agentId: step.agentId, content: "", files: [], error: response.statusText };
+
+        const data = await response.json() as any;
+        const content = data.choices?.[0]?.message?.content || "";
+        const usage = data.usage || {};
+        const files = extractFiles(content, step.agentId);
+        return { stepId: step.id, agentId: step.agentId, content, files, usage };
+      })
+    );
+
+    // Send all results
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        res.write(`data: ${JSON.stringify({ type: "step_done", ...result.value })}\n\n`);
+      } else {
+        res.write(`data: ${JSON.stringify({ type: "step_error", error: result.reason?.message })}\n\n`);
+      }
+    }
+    res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+    res.end();
+  } catch (err: any) {
+    res.write(`data: ${JSON.stringify({ type: "error", message: err.message })}\n\n`);
+    res.end();
+  }
+});
+
+// ── Output Format Generator — React/Python/PDF/DOCX ──────────────────────────
+agentsRouter.post("/generate-format", async (req: Request, res: Response) => {
+  const { prompt, format, existingHtml = "", lang = "ar" } = req.body;
+  if (!prompt || !format) { res.status(400).json({ error: "prompt and format required" }); return; }
+
+  const key = process.env.DEEPSEEK_API_KEY;
+  if (!key) { res.status(500).json({ error: "DEEPSEEK_API_KEY not configured" }); return; }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const formatPrompts: Record<string, string> = {
+    react: `You are a React expert. Convert this project to a complete React application.
+Output a SINGLE self-contained React app using CDN (React 18 + ReactDOM via unpkg).
+Use: <script type="text/babel"> for JSX. Include Tailwind CSS CDN.
+Return complete HTML file with embedded React app inside \`\`\`html ... \`\`\`
+Project: ${prompt}
+${existingHtml ? `Existing design reference:\n${existingHtml.slice(0, 3000)}` : ""}`,
+
+    python: `You are a Python expert. Create a complete Python application for this project.
+Output structure using === FILE: filename === markers:
+=== FILE: main.py ===
+[Python code]
+=== FILE: requirements.txt ===
+[dependencies]
+=== FILE: README.md ===
+[setup instructions]
+Project: ${prompt}`,
+
+    telegram: `You are a Telegram bot expert. Create a complete Telegram bot in Python.
+Use python-telegram-bot v20 (async). Include all handlers, commands, and inline keyboards.
+Output:
+=== FILE: bot.py ===
+[complete async bot code]
+=== FILE: requirements.txt ===
+python-telegram-bot==20.7
+=== FILE: .env.example ===
+BOT_TOKEN=your_token_here
+=== FILE: README.md ===
+[setup and deployment instructions]
+Project: ${prompt}`,
+
+    landing: `You are a landing page expert. Create a stunning, conversion-optimized landing page.
+Use: Tailwind CSS CDN + Alpine.js CDN + AOS animations CDN.
+Include: Hero, Features, Testimonials, Pricing, CTA, Footer sections.
+Make it pixel-perfect, mobile-first, with smooth animations.
+Return complete HTML inside \`\`\`html ... \`\`\`
+Project: ${prompt}`,
+  };
+
+  const systemPrompt = formatPrompts[format] || formatPrompts.react;
+
+  try {
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+      signal: AbortSignal.timeout(180000),
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [{ role: "user", content: systemPrompt }],
+        max_tokens: 12000, temperature: 0.5, stream: true,
+      }),
+    });
+
+    if (!response.ok) { res.write(`data: ${JSON.stringify({ type: "error", message: await response.text() })}\n\n`); res.end(); return; }
+
+    const reader = response.body?.getReader();
+    if (!reader) { res.end(); return; }
+    const decoder = new TextDecoder();
+    let fullContent = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const line of decoder.decode(value, { stream: true }).split("\n")) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") continue;
+        try {
+          const delta = JSON.parse(data).choices?.[0]?.delta?.content;
+          if (delta) { fullContent += delta; res.write(`data: ${JSON.stringify({ type: "chunk", content: delta })}\n\n`); }
+        } catch {}
+      }
+    }
+
+    const files = extractFiles(fullContent, "frontend");
+    // Also parse === FILE: === format
+    const fileMarkerRegex = /=== FILE: (.+?) ===\n([\s\S]*?)(?==== FILE:|$)/g;
+    let fmatch;
+    while ((fmatch = fileMarkerRegex.exec(fullContent)) !== null) {
+      const fname = fmatch[1].trim();
+      const fcontent = fmatch[2].trim();
+      if (fcontent.length > 10) {
+        const ext = fname.split('.').pop()?.toLowerCase() || 'txt';
+        const langMap: Record<string, string> = { py: 'python', js: 'javascript', ts: 'typescript', html: 'html', css: 'css', md: 'markdown', txt: 'text', json: 'json', sh: 'bash' };
+        files.push({ name: fname, content: fcontent, language: langMap[ext] || 'text' });
+      }
+    }
+
+    res.write(`data: ${JSON.stringify({ type: "done", files, format })}\n\n`);
+    res.end();
+  } catch (err: any) {
+    res.write(`data: ${JSON.stringify({ type: "error", message: err.message })}\n\n`);
+    res.end();
+  }
+});
+
 // ── Memory / Q&A endpoint ─────────────────────────────────────────────────────
 agentsRouter.post("/ask-project", async (req: Request, res: Response) => {
   const { question, projectMemory, lang = "ar" } = req.body;

@@ -99,3 +99,26 @@
 - [x] Deploy dropdown menu (Vercel, GitHub, Custom Server)
 - [x] New tabs: Console, History, Observe
 - [x] Token counter in tabs bar
+
+## Phase 9: Professional Upgrade
+- [ ] Self-Healing Loop — console errors auto-sent to auditor for fixing
+- [ ] Parallel Agents — independent agents run concurrently (Promise.all)
+- [ ] Output Formats — React App + Python Script + PDF Report
+- [ ] SEO Analyzer — automatic SEO score and fixes
+- [ ] Mobile Validator — responsive test at 375/768/1280px
+- [ ] Performance Score — Lighthouse-style scoring
+- [ ] Auto-save — project saved every 30s to localStorage
+- [ ] Share Link — shareable preview URL for clients
+- [ ] Keyboard Shortcuts — Ctrl+Enter to run, Escape to stop
+- [ ] Observability real tokens — actual DeepSeek API usage tracking
+
+### Completed in Phase 9:
+- [x] Self-Healing Loop — console errors auto-sent to auditor for fixing
+- [x] Parallel Agents endpoint — /api/agents/execute-parallel (Promise.all)
+- [x] Output Formats — React App + Python Script + Telegram Bot + Landing Page
+- [x] SEO Analyzer — SEO + Performance + Mobile + A11y scores (4 metrics)
+- [x] Auto-save — project saved every 30s to localStorage with restore prompt
+- [x] Keyboard Shortcuts — Ctrl+Enter to run, Ctrl+S to save version, Escape to close menus
+- [x] Generate Format endpoint — /api/agents/generate-format
+- [x] Self-Heal endpoint — /api/agents/self-heal
+- [x] Enhanced validate-html — 4 separate scores (SEO/Perf/Mobile/A11y)

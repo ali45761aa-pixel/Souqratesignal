@@ -157,6 +157,66 @@ deployRouter.post('/validate-html', async (req, res) => {
     res.json({ success: true, errors, warnings, score, valid: errors.length === 0 });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
+// ── Execute HTML in sandbox and capture errors ────────────────
+deployRouter.post('/validate-html', async (req, res) => {
+  try {
+    const { html } = req.body;
+    if (!html) return res.status(400).json({ error: 'html required' });
+
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const suggestions: string[] = [];
+
+    // ── SEO Score ──
+    let seoScore = 100;
+    if (!html.includes('<!DOCTYPE') && !html.includes('<!doctype')) { errors.push('Missing DOCTYPE'); seoScore -= 10; }
+    if (!html.includes('<title>') && !html.includes('<title ')) { errors.push('Missing <title> tag'); seoScore -= 15; }
+    if (!html.match(/meta[^>]+name=["']description["']/i)) { warnings.push('Missing meta description'); seoScore -= 10; suggestions.push('Add: <meta name="description" content="...">'); }
+    if (!html.includes('<h1')) { warnings.push('No H1 heading'); seoScore -= 8; }
+    if (!html.match(/property=["']og:/i)) { warnings.push('Missing Open Graph tags'); seoScore -= 5; suggestions.push('Add og:title, og:description, og:image'); }
+    const imgMatches = html.match(/<img[^>]*>/gi) || [];
+    const imgWithoutAlt = imgMatches.filter((img: string) => !img.includes('alt=')).length;
+    if (imgWithoutAlt > 0) { warnings.push(`${imgWithoutAlt} image(s) missing alt`); seoScore -= imgWithoutAlt * 3; }
+
+    // ── Performance Score ──
+    let perfScore = 100;
+    const htmlSize = html.length;
+    if (htmlSize > 100000) { warnings.push(`Large HTML: ${Math.round(htmlSize / 1000)}KB`); perfScore -= 15; }
+    const scriptCount = (html.match(/<script/gi) || []).length;
+    if (scriptCount > 6) { warnings.push(`${scriptCount} script tags (consider bundling)`); perfScore -= 10; }
+    if (imgMatches.length > 3 && !html.includes('loading=')) { suggestions.push('Add loading="lazy" to images'); perfScore -= 5; }
+
+    // ── Mobile Score ──
+    let mobileScore = 100;
+    if (!html.match(/meta[^>]+name=["']viewport["']/i)) { errors.push('Missing viewport meta!'); mobileScore -= 30; }
+    const hasResponsive = html.includes('@media') || html.includes('sm:') || html.includes('md:') || html.includes('responsive');
+    if (!hasResponsive) { warnings.push('No responsive CSS detected'); mobileScore -= 20; suggestions.push('Add responsive breakpoints or use Tailwind CSS'); }
+
+    // ── Accessibility Score ──
+    let a11yScore = 100;
+    const semanticTags = ['<header', '<main', '<footer', '<nav', '<section', '<article'];
+    if (!semanticTags.some(t => html.includes(t))) { warnings.push('No semantic HTML5 tags'); a11yScore -= 15; suggestions.push('Use <header>, <main>, <footer>, <nav>'); }
+    if (!html.match(/aria-label|role=/i)) { suggestions.push('Add ARIA labels for accessibility'); a11yScore -= 5; }
+    const openTags = (html.match(/<[a-z][^/!>]*>/gi) || []).length;
+    const closeTags = (html.match(/<\/[a-z][^>]*>/gi) || []).length;
+    if (Math.abs(openTags - closeTags) > 5) { warnings.push(`Possible unclosed tags (${openTags} open, ${closeTags} close)`); a11yScore -= 10; }
+
+    const score = Math.round((seoScore + perfScore + mobileScore + a11yScore) / 4);
+
+    res.json({
+      success: true,
+      score: Math.max(0, Math.min(100, score)),
+      seoScore: Math.max(0, Math.min(100, seoScore)),
+      perfScore: Math.max(0, Math.min(100, perfScore)),
+      mobileScore: Math.max(0, Math.min(100, mobileScore)),
+      a11yScore: Math.max(0, Math.min(100, a11yScore)),
+      errors,
+      warnings,
+      suggestions,
+      valid: errors.length === 0,
+    });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
 
 // ── Unsplash Image Search ─────────────────────────────────────
 deployRouter.post('/unsplash', async (req, res) => {
