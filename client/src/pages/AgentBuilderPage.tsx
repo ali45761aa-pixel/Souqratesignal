@@ -424,7 +424,39 @@ export default function AgentBuilderPage() {
   });
 })();
 </script>`;
-    if (html.includes('<head>')) return html.replace('<head>', '<head>' + interceptor);
+    // Image fallback script — fixes broken Unsplash images with beautiful placeholders
+    const imageFallback = `<script>
+(function() {
+  function fixBrokenImages() {
+    document.querySelectorAll('img').forEach(function(img) {
+      if (!img.dataset.fallbackAdded) {
+        img.dataset.fallbackAdded = '1';
+        img.addEventListener('error', function() {
+          var w = img.width || img.offsetWidth || 800;
+          var h = img.height || img.offsetHeight || 500;
+          var colors = ['1a1a2e','16213e','0f3460','533483','e94560'];
+          var color = colors[Math.floor(Math.random() * colors.length)];
+          img.src = 'https://placehold.co/' + w + 'x' + h + '/' + color + '/ffffff?text=Image';
+          img.style.objectFit = 'cover';
+        });
+        // Fix Unsplash URLs that are missing the photo ID
+        if (img.src && img.src.includes('unsplash.com') && img.src.includes('[ID]')) {
+          var ids = ['1560472354-b33ff0c44a43','1497366216548-37526070297c','1551434678-e076c223a692','1486312338219-ce68d2c6f44d','1519389950473-47ba0277781c'];
+          img.src = 'https://images.unsplash.com/photo-' + ids[Math.floor(Math.random()*ids.length)] + '?w=800&q=80&auto=format&fit=crop';
+        }
+      }
+    });
+  }
+  // Run on load and after DOM changes
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fixBrokenImages);
+  } else { fixBrokenImages(); }
+  setTimeout(fixBrokenImages, 1000);
+  var obs = new MutationObserver(fixBrokenImages);
+  obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
+})();
+</script>`;
+    if (html.includes('<head>')) return html.replace('<head>', '<head>' + interceptor).replace('</body>', imageFallback + '</body>');
     if (html.includes('<body>')) return html.replace('<body>', interceptor + '<body>');
     return interceptor + html;
   };
@@ -633,7 +665,22 @@ export default function AgentBuilderPage() {
           body: JSON.stringify({
             prompt, stepId: step.id, agentId: step.agentId,
             lang, projectContext: projectContext.slice(0, 5000),
-            previousFiles: allFiles.slice(-5).map(f => ({ name: f.name, content: f.content.slice(0, 2000) })),
+            previousFiles: (() => {
+              // For reviewer/auditor: pass the full HTML file so they can actually fix it
+              if (step.agentId === "reviewer" || step.agentId === "auditor") {
+                const htmlFiles = allFiles.filter(f =>
+                  f.language === "html" &&
+                  (f.content.includes("<!DOCTYPE") || f.content.includes("<html") || f.content.includes("<body"))
+                );
+                const latestHtml = htmlFiles[htmlFiles.length - 1];
+                if (latestHtml) {
+                  // Pass full HTML + other small files
+                  const otherFiles = allFiles.filter(f => f.language !== "html").slice(-3).map(f => ({ name: f.name, content: f.content.slice(0, 1000), language: f.language }));
+                  return [{ name: latestHtml.name, content: latestHtml.content, language: "html" }, ...otherFiles];
+                }
+              }
+              return allFiles.slice(-5).map(f => ({ name: f.name, content: f.content.slice(0, 2000), language: f.language }));
+            })(),
           }),
           signal: abortRef.current.signal,
         });

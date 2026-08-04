@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 
-import { detectTheme, generateDesignSystemCSS, getDesignInstructions, DESIGN_THEMES } from '../lib/designSystem';
+import { detectTheme, generateDesignSystemCSS, getDesignInstructions, getUnsplashPhotos, DESIGN_THEMES } from '../lib/designSystem';
 const agentsRouter = Router();
 
 // ── Agent Definitions ─────────────────────────────────────────────────────────
@@ -377,7 +377,30 @@ function generatePlan(prompt: string, lang: string): {
     ];
   }
 
-  return basePlan;
+  // ── Mandatory quality steps at the end of EVERY plan ──────────────────────
+  const reviewerStep = {
+    id: "step-reviewer", agentId: "reviewer",
+    titleAr: "مراجعة الكود وإصلاح الأخطاء",
+    titleEn: "Code Review & Bug Fixing",
+    descAr: "مراجعة شاملة للكود وإصلاح أخطاء JavaScript والـ CSS وتحسين التصميم البصري",
+    descEn: "Comprehensive code review, fixing JavaScript/CSS bugs and improving visual design",
+    estimatedTime: "20s",
+  };
+  const auditorStep = {
+    id: "step-auditor", agentId: "auditor",
+    titleAr: "التدقيق العميق والتحسين النهائي",
+    titleEn: "Deep Audit & Final Enhancement",
+    descAr: "تدقيق الأمان والأداء والـ Accessibility وتحسين جمالي نهائي للوصول لمستوى احترافي",
+    descEn: "Security, performance and accessibility audit plus final aesthetic enhancement to professional level",
+    estimatedTime: "25s",
+  };
+
+  // Remove docs from end and add reviewer+auditor after it
+  const docsStep = basePlan.find(s => s.agentId === "docs");
+  const planWithoutDocs = basePlan.filter(s => s.agentId !== "docs");
+  return docsStep
+    ? [...planWithoutDocs, docsStep, reviewerStep, auditorStep]
+    : [...planWithoutDocs, reviewerStep, auditorStep];
 }
 
 // ── Plan endpoint ─────────────────────────────────────────────────────────────
@@ -935,6 +958,8 @@ function buildAgentPrompt(agentId: string, prompt: string, lang: string, context
   const themeKey = detectTheme(prompt);
   const designCSS = generateDesignSystemCSS(themeKey);
   const designInstructions = getDesignInstructions(themeKey, prompt);
+  const unsplashPhotos = getUnsplashPhotos(prompt, 8);
+  const photoList = unsplashPhotos.map((url, i) => `Photo ${i+1}: ${url}`).join('\n');
     const prompts: Record<string, string> = {
     analyzer: ar
       ? `أنت خبير تحليل متطلبات. حلّل المشروع وأخرج:
@@ -996,10 +1021,11 @@ ${designInstructions}
 - آراء العملاء بأسماء عربية حقيقية ومناسبة مع صور Unsplash
 - الأسعار في Pricing منطقية للسوق العربي
 
-قواعد الصور:
-- Hero: https://images.unsplash.com/photo-[ID]?w=1200&q=85&auto=format&fit=crop
-- بطاقات: https://images.unsplash.com/photo-[ID]?w=600&q=80&auto=format&fit=crop
-- اختر IDs مناسبة للمشروع (تقنية، طعام، أعمال، موضة، إلخ)
+قواعد الصور — استخدم هذه الروابط الحقيقية المُعدّة لمشروعك:
+${photoList}
+- للـ Hero: استخدم Photo 1 بعرض w=1200
+- للبطاقات: استخدم Photo 2-6 بعرض w=600
+- لا تستخدم [ID] placeholder — استخدم الروابط الكاملة أعلاه
 
 قواعد CSS الإلزامية:
 - استخدم rgba(var(--primary-rgb), 0.1) للشفافية — وليس rgba(var(--primary), 0.1)
@@ -1046,10 +1072,11 @@ MANDATORY CONTENT RULES:
 - Testimonials with realistic names and relevant quotes + Unsplash photos
 - Pricing must be realistic for the market
 
-IMAGE RULES:
-- Hero: https://images.unsplash.com/photo-[ID]?w=1200&q=85&auto=format&fit=crop
-- Cards: https://images.unsplash.com/photo-[ID]?w=600&q=80&auto=format&fit=crop
-- Choose IDs relevant to the project topic
+IMAGE RULES — use these real pre-selected URLs for your project:
+${photoList}
+- Hero: use Photo 1 with w=1200
+- Cards: use Photo 2-6 with w=600
+- NEVER use [ID] placeholder — use the complete URLs above
 
 MANDATORY CSS RULES:
 - Use rgba(var(--primary-rgb), 0.1) for transparency — NOT rgba(var(--primary), 0.1)

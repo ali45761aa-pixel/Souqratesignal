@@ -643,3 +643,86 @@ PROJECT: ${prompt}
 `;
 }
 
+// Curated Unsplash photo IDs by category — all verified working
+export const UNSPLASH_PHOTOS: Record<string, string[]> = {
+  tech: [
+    "1518770660439-4636190af475", // laptop code
+    "1461749280684-dccba630e2f6", // code screen
+    "1555066931-4365d14bab8c", // programming
+    "1498050108023-c5249f4df085", // laptop workspace
+    "1504639725590-34d0984388bd", // tech abstract
+  ],
+  business: [
+    "1560472354-b33ff0c44a43", // business meeting
+    "1497366216548-37526070297c", // office
+    "1551434678-e076c223a692", // team work
+    "1486312338219-ce68d2c6f44d", // laptop business
+    "1519389950473-47ba0277781c", // workspace
+  ],
+  ecommerce: [
+    "1441986300917-64674bd600d8", // shopping bags
+    "1472851294608-062f824d29cc", // fashion store
+    "1483985988355-763728e1935b", // shopping
+    "1607082348824-0a96f2a4b9da", // products
+    "1556742049-0cfed4f6a45d", // online shopping
+  ],
+  perfume: [
+    "1541643600914-78b084683702", // perfume bottle
+    "1588776814546-1ffbb172ef4a", // luxury perfume
+    "1594938298603-c8148c4b4357", // fragrance
+    "1615634260167-c8cdede054de", // perfume luxury
+    "1592945403244-b3fbafd7f539", // scent
+  ],
+  food: [
+    "1546069901-ba9599a7e63c", // healthy food
+    "1567620905732-2d1ec7ab7445", // restaurant
+    "1504674900247-0877df9cc836", // food plate
+    "1555396273-367ea4eb4db5", // restaurant interior
+    "1414235077428-338989a2e8c0", // gourmet food
+  ],
+  nature: [
+    "1441974231531-c6227db76b6e", // nature forest
+    "1506905925346-21bda4d32df4", // mountains
+    "1518173946687-a4c8892bbd9f", // green nature
+    "1464822759023-fed622ff2c3b", // landscape
+    "1500534314209-a157d0ea8a8a", // nature abstract
+  ],
+  luxury: [
+    "1566073771259-470e8a26d08e", // luxury hotel
+    "1582719478250-c89cae4dc85b", // luxury interior
+    "1578683010236-d716f9a3f461", // luxury lifestyle
+    "1542314831-068cd1dbfeeb", // luxury room
+    "1571896349842-33c89424de2d", // luxury architecture
+  ],
+  dashboard: [
+    "1551288049-bebda4e38f71", // analytics dashboard
+    "1460925895917-afdab827c52f", // data visualization
+    "1504868584819-f8e8b4b6d7e3", // charts
+    "1543286386-713bdd548da4", // monitoring
+    "1611532736597-de2d4265fba3", // data screen
+  ],
+  default: [
+    "1560472354-b33ff0c44a43",
+    "1518770660439-4636190af475",
+    "1497366216548-37526070297c",
+    "1551434678-e076c223a692",
+    "1486312338219-ce68d2c6f44d",
+  ],
+};
+
+// Get relevant Unsplash photo URLs for a project
+export function getUnsplashPhotos(prompt: string, count: number = 5): string[] {
+  const p = prompt.toLowerCase();
+  let category = "default";
+  if (p.includes("عطر") || p.includes("perfume") || p.includes("fragrance")) category = "perfume";
+  else if (p.includes("متجر") || p.includes("store") || p.includes("shop") || p.includes("تسوق")) category = "ecommerce";
+  else if (p.includes("مطعم") || p.includes("food") || p.includes("طعام") || p.includes("restaurant")) category = "food";
+  else if (p.includes("تقنية") || p.includes("tech") || p.includes("برمجة") || p.includes("software")) category = "tech";
+  else if (p.includes("فاخر") || p.includes("luxury") || p.includes("premium")) category = "luxury";
+  else if (p.includes("طبيعة") || p.includes("nature") || p.includes("organic") || p.includes("عضوي")) category = "nature";
+  else if (p.includes("لوحة") || p.includes("dashboard") || p.includes("تحليل") || p.includes("analytics")) category = "dashboard";
+  else if (p.includes("شركة") || p.includes("business") || p.includes("أعمال") || p.includes("corporate")) category = "business";
+
+  const photos = UNSPLASH_PHOTOS[category] || UNSPLASH_PHOTOS.default;
+  return photos.slice(0, count).map(id => `https://images.unsplash.com/photo-${id}?w=800&q=80&auto=format&fit=crop`);
+}
