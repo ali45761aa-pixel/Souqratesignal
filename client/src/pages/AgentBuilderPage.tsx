@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useMemo } from "react";
 import { useLang } from "@/contexts/LangContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -13,7 +14,7 @@ import {
   TestTube, BookOpen, Rocket, Settings, MessageCircle
   , Target, Layers, Lightbulb, GitBranch, Microscope
 } from "lucide-react";
-import { ExternalLink, Github } from "lucide-react";
+import { ExternalLink, Github, Upload, Server, Maximize2, Minimize2, Terminal, History, RotateCcw, DollarSign, Wifi, WifiOff } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface PlanStep {
@@ -41,6 +42,29 @@ interface ProjectMemory {
   allFiles: { name: string; content: string; language: string }[];
   summary: string;
   createdAt: number;
+}
+
+interface ConsoleMessage {
+  type: "log" | "error" | "warn" | "info";
+  message: string;
+  timestamp: number;
+}
+
+interface ProjectVersion {
+  id: string;
+  prompt: string;
+  files: { name: string; content: string; language: string }[];
+  createdAt: number;
+  label: string;
+}
+
+interface ObservabilityEntry {
+  stepId: string;
+  agentId: string;
+  tokensIn: number;
+  tokensOut: number;
+  durationMs: number;
+  costUSD: number;
 }
 
 interface QAMessage {
@@ -121,7 +145,7 @@ export default function AgentBuilderPage() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(-1);
   const [projectMemory, setProjectMemory] = useState<ProjectMemory | null>(null);
-  const [activeTab, setActiveTab] = useState<"plan" | "preview" | "files" | "chat">("plan");
+  const [activeTab, setActiveTab] = useState<"plan" | "preview" | "files" | "chat" | "console" | "history" | "observe">("plan");
   const [selectedFile, setSelectedFile] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>("preview");
   const [device, setDevice] = useState<Device>("desktop");
@@ -133,11 +157,29 @@ export default function AgentBuilderPage() {
   const [deployedUrl, setDeployedUrl] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [liveHtmlFile, setLiveHtmlFile] = useState<string | null>(null); // live preview during execution
-  const allFilesRef = useRef<{ name: string; content: string; language: string }[]>([]); // persistent ref for allFiles
+  const [liveHtmlFile, setLiveHtmlFile] = useState<string | null>(null);
+  const allFilesRef = useRef<{ name: string; content: string; language: string }[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const qaEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // New feature states
+  const [consoleMessages, setConsoleMessages] = useState<ConsoleMessage[]>([]);
+  const [versions, setVersions] = useState<ProjectVersion[]>([]);
+  const [observability, setObservability] = useState<ObservabilityEntry[]>([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [showDeployMenu, setShowDeployMenu] = useState(false);
+  const [isStandbyMode, setIsStandbyMode] = useState(false);
+  const [standbyPrompt, setStandbyPrompt] = useState("");
+  const [isStandbyExecuting, setIsStandbyExecuting] = useState(false);
+  const [htmlValidation, setHtmlValidation] = useState<{ score: number; errors: string[]; warnings: string[] } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Total cost calculation
+  const totalCost = useMemo(() => observability.reduce((acc, e) => acc + e.costUSD, 0), [observability]);
+  const totalTokens = useMemo(() => observability.reduce((acc, e) => acc + e.tokensIn + e.tokensOut, 0), [observability]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -155,6 +197,197 @@ export default function AgentBuilderPage() {
 
   // Scroll QA to bottom
   useEffect(() => { qaEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [qaMessages]);
+
+  // Scroll console to bottom
+  useEffect(() => { consoleEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [consoleMessages]);
+
+  // Listen for iframe console messages
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === "console") {
+        setConsoleMessages(prev => [...prev.slice(-200), {
+          type: e.data.level || "log",
+          message: e.data.message,
+          timestamp: Date.now(),
+        }]);
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
+  // Inject console interceptor into iframe HTML
+  const injectConsoleInterceptor = (html: string): string => {
+    const interceptor = `<script>
+(function() {
+  var orig = { log: console.log, error: console.error, warn: console.warn, info: console.info };
+  ['log','error','warn','info'].forEach(function(level) {
+    console[level] = function() {
+      var msg = Array.from(arguments).map(function(a) { try { return typeof a === 'object' ? JSON.stringify(a) : String(a); } catch(e) { return String(a); } }).join(' ');
+      try { window.parent.postMessage({ type: 'console', level: level, message: msg }, '*'); } catch(e) {}
+      orig[level].apply(console, arguments);
+    };
+  });
+  window.addEventListener('error', function(e) {
+    try { window.parent.postMessage({ type: 'console', level: 'error', message: 'JS Error: ' + e.message + ' (line ' + e.lineno + ')' }, '*'); } catch(ex) {}
+  });
+})();
+</script>`;
+    if (html.includes('<head>')) return html.replace('<head>', '<head>' + interceptor);
+    if (html.includes('<body>')) return html.replace('<body>', interceptor + '<body>');
+    return interceptor + html;
+  };
+
+  // Save version snapshot
+  const saveVersion = useCallback((files: { name: string; content: string; language: string }[], label?: string) => {
+    const version: ProjectVersion = {
+      id: Date.now().toString(),
+      prompt,
+      files: [...files],
+      createdAt: Date.now(),
+      label: label || `v${versions.length + 1} — ${new Date().toLocaleTimeString()}`,
+    };
+    setVersions(prev => [...prev.slice(-9), version]); // keep last 10
+    toast.success(lang === "ar" ? `✅ تم حفظ الإصدار ${version.label}` : `✅ Version ${version.label} saved`);
+  }, [prompt, versions.length, lang]);
+
+  // Restore version
+  const restoreVersion = useCallback((version: ProjectVersion) => {
+    setProjectMemory(prev => prev ? { ...prev, allFiles: version.files } : null);
+    setLiveHtmlFile(version.files.find(f => f.language === "html")?.content || null);
+    toast.success(lang === "ar" ? "✅ تم استعادة الإصدار" : "✅ Version restored");
+  }, [lang]);
+
+  // ZIP Import
+  const handleImportZip = useCallback(async (file: File) => {
+    setIsImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/deploy/import-zip", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Import failed");
+      const importedFiles = data.files as { name: string; content: string; language: string }[];
+      const htmlFile = importedFiles.find(f => f.language === "html");
+      setProjectMemory({
+        prompt: `Imported project: ${file.name}`,
+        plan: [],
+        allFiles: importedFiles,
+        summary: `Imported ${importedFiles.length} files from ${file.name}`,
+        createdAt: Date.now(),
+      });
+      if (htmlFile) { setLiveHtmlFile(htmlFile.content); setActiveTab("preview"); }
+      else setActiveTab("files");
+      toast.success(lang === "ar" ? `✅ تم استيراد ${importedFiles.length} ملف` : `✅ Imported ${importedFiles.length} files`);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setIsImporting(false);
+    }
+  }, [lang]);
+
+  // HTML Validation
+  const handleValidateHtml = useCallback(async (html: string) => {
+    try {
+      const res = await fetch("/api/deploy/validate-html", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ html }),
+      });
+      const data = await res.json();
+      if (data.success) setHtmlValidation(data);
+    } catch {}
+  }, []);
+
+  // Standby Mode — edit without rebuilding
+  const handleStandbyEdit = useCallback(async () => {
+    if (!standbyPrompt.trim() || !projectMemory || isStandbyExecuting) return;
+    setIsStandbyExecuting(true);
+    try {
+      const currentHtml = projectMemory.allFiles.find(f => f.language === "html")?.content || "";
+      const res = await fetch("/api/stream-build", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: `You are editing an existing project. Current HTML:\n\`\`\`html\n${currentHtml.slice(0, 8000)}\n\`\`\`\n\nUser request: ${standbyPrompt}\n\nReturn the COMPLETE updated HTML file with the requested changes applied. Keep everything else the same.`,
+          lang,
+        }),
+      });
+      const reader = res.body?.getReader();
+      if (!reader) return;
+      const decoder = new TextDecoder();
+      let newHtml = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value, { stream: true }).split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const parsed = JSON.parse(line.slice(6));
+            if (parsed.type === "chunk") newHtml += parsed.content;
+          } catch {}
+        }
+      }
+      // Extract HTML from response
+      const htmlMatch = newHtml.match(/```html\n?([\s\S]*?)```/) || newHtml.match(/(<!DOCTYPE[\s\S]*<\/html>)/i);
+      const finalHtml = htmlMatch ? (htmlMatch[1] || htmlMatch[0]) : newHtml;
+      if (finalHtml.length > 100) {
+        // Save current version before editing
+        saveVersion(projectMemory.allFiles, `قبل: ${standbyPrompt.slice(0, 30)}`);
+        const updatedFiles = projectMemory.allFiles.map(f =>
+          f.language === "html" ? { ...f, content: finalHtml } : f
+        );
+        setProjectMemory(prev => prev ? { ...prev, allFiles: updatedFiles } : null);
+        setLiveHtmlFile(finalHtml);
+        setActiveTab("preview");
+        setStandbyPrompt("");
+        toast.success(lang === "ar" ? "✅ تم تطبيق التعديل!" : "✅ Edit applied!");
+      } else {
+        toast.error(lang === "ar" ? "لم يتمكن الوكيل من تطبيق التعديل" : "Agent couldn't apply the edit");
+      }
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setIsStandbyExecuting(false);
+    }
+  }, [standbyPrompt, projectMemory, lang, isStandbyExecuting, saveVersion]);
+
+  // Deploy to Custom Server
+  const handleDeployCustomServer = useCallback(async () => {
+    if (!projectMemory?.allFiles.length) return;
+    const host = window.prompt(lang === "ar" ? "أدخل عنوان السيرفر (مثال: mysite.com)" : "Enter server host (e.g. mysite.com)");
+    if (!host) return;
+    const username = window.prompt(lang === "ar" ? "اسم المستخدم (FTP/SSH)" : "Username (FTP/SSH)");
+    if (!username) return;
+    const password = window.prompt(lang === "ar" ? "كلمة المرور" : "Password");
+    if (!password) return;
+    const path = window.prompt(lang === "ar" ? "مسار الرفع (افتراضي: /public_html)" : "Upload path (default: /public_html)", "/public_html");
+    setIsDeploying(true);
+    try {
+      const res = await fetch("/api/deploy/custom-server", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: projectMemory.allFiles,
+          serverConfig: { host, username, password, path: path || "/public_html", protocol: "ftp" },
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(lang === "ar" ? `✅ تعليمات الرفع جاهزة! ${data.instructions.fileCount} ملف` : `✅ Upload instructions ready! ${data.instructions.fileCount} files`);
+        // Show instructions
+        const steps = data.instructions.steps.join("\n");
+        alert(steps);
+      } else {
+        toast.error(data.error || "Deploy failed");
+      }
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setIsDeploying(false);
+      setShowDeployMenu(false);
+    }
+  }, [projectMemory, lang]);
 
   // ── Step 1: Generate Plan ────────────────────────────────────────────────────
   const handleGeneratePlan = useCallback(async () => {
@@ -422,6 +655,34 @@ export default function AgentBuilderPage() {
 
   return (
     <div className="flex flex-col h-full bg-background" dir={isRTL ? "rtl" : "ltr"}>
+      {/* ── Fullscreen Preview Overlay ── */}
+      {isFullscreen && htmlFile && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+          <div className="shrink-0 flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-800">
+            <span className="text-sm text-gray-300 font-medium">{lang === "ar" ? "معاينة ملء الشاشة" : "Fullscreen Preview"}</span>
+            <div className="flex items-center gap-2">
+              <div className="flex bg-gray-800 rounded-lg p-0.5">
+                {(["desktop", "tablet", "mobile"] as Device[]).map(d => (
+                  <button key={d} onClick={() => setDevice(d)} className={cn("p-1.5 rounded-md transition-all", device === d ? "bg-primary text-white" : "text-gray-400 hover:text-white")}>
+                    {d === "desktop" && <Monitor className="w-3.5 h-3.5" />}
+                    {d === "tablet" && <Tablet className="w-3.5 h-3.5" />}
+                    {d === "mobile" && <Smartphone className="w-3.5 h-3.5" />}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setIsFullscreen(false)} className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white transition-colors">
+                <Minimize2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-auto flex items-start justify-center p-4 bg-gray-950">
+            <div className="bg-white rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
+              style={{ width: device === "desktop" ? "100%" : device === "tablet" ? "768px" : "390px", maxWidth: "100%", minHeight: "100%" }}>
+              <iframe ref={iframeRef} srcDoc={injectConsoleInterceptor(htmlFile.content)} className="w-full border-0" style={{ height: "calc(100vh - 80px)" }} sandbox="allow-scripts allow-same-origin allow-forms" title="Fullscreen Preview" />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Top Input ── */}
       <div className="shrink-0 border-b border-border bg-card/20 px-3 py-2.5">
@@ -525,32 +786,145 @@ export default function AgentBuilderPage() {
                 )}
               </button>
             ))}
-            {projectMemory && (
-              <button onClick={handleDownload} className="ms-auto flex items-center gap-1 px-3 py-2 text-xs gradient-primary text-white rounded-lg my-1">
-                <Download className="w-3 h-3" />
-                ZIP
-              </button>
-            )}
-            {projectMemory && (
+            {/* Extra tabs: Console, History, Observe */}
+            {consoleMessages.length > 0 && (
               <button
-                onClick={handleDeployVercel}
-                disabled={isDeploying}
-                className="flex items-center gap-1 px-3 py-2 text-xs bg-black border border-white/20 text-white rounded-lg my-1 hover:bg-white/10 transition-colors disabled:opacity-50"
+                onClick={() => setActiveTab("console")}
+                className={cn("flex items-center gap-1.5 px-3 py-2.5 text-xs border-b-2 transition-all", activeTab === "console" ? "border-red-400 text-red-400 font-medium" : "border-transparent text-muted-foreground hover:text-foreground")}
               >
-                {isDeploying ? <Loader2 className="w-3 h-3 animate-spin" /> : <ExternalLink className="w-3 h-3" />}
-                {lang === "ar" ? "نشر" : "Deploy"}
+                <Terminal className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{lang === "ar" ? "كونسول" : "Console"}</span>
+                {consoleMessages.filter(m => m.type === "error").length > 0 && (
+                  <span className="bg-red-500/20 text-red-400 text-xs px-1 rounded">{consoleMessages.filter(m => m.type === "error").length}</span>
+                )}
               </button>
             )}
-            {deployedUrl && (
-              <a href={deployedUrl} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1 px-3 py-2 text-xs bg-green-500/20 border border-green-500/30 text-green-400 rounded-lg my-1 hover:bg-green-500/30 transition-colors">
-                <ExternalLink className="w-3 h-3" />
-                {lang === "ar" ? "فتح الموقع" : "Open Site"}
-              </a>
+            {versions.length > 0 && (
+              <button
+                onClick={() => setActiveTab("history")}
+                className={cn("flex items-center gap-1.5 px-3 py-2.5 text-xs border-b-2 transition-all", activeTab === "history" ? "border-primary text-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground")}
+              >
+                <History className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{lang === "ar" ? "الإصدارات" : "History"}</span>
+                <span className="bg-primary/20 text-primary text-xs px-1 rounded">{versions.length}</span>
+              </button>
             )}
+            {observability.length > 0 && (
+              <button
+                onClick={() => setActiveTab("observe")}
+                className={cn("flex items-center gap-1.5 px-3 py-2.5 text-xs border-b-2 transition-all", activeTab === "observe" ? "border-yellow-400 text-yellow-400 font-medium" : "border-transparent text-muted-foreground hover:text-foreground")}
+              >
+                <DollarSign className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">${totalCost.toFixed(4)}</span>
+              </button>
+            )}
+            {/* Action buttons */}
+            <div className="ms-auto flex items-center gap-1 py-1">
+              {totalTokens > 0 && (
+                <span className="text-xs text-muted-foreground/50 px-1 hidden lg:block">{(totalTokens/1000).toFixed(1)}k</span>
+              )}
+              {projectMemory && (
+                <button onClick={handleDownload} className="flex items-center gap-1 px-2.5 py-1.5 text-xs gradient-primary text-white rounded-lg">
+                  <Download className="w-3 h-3" />
+                  <span className="hidden sm:inline">ZIP</span>
+                </button>
+              )}
+              {projectMemory && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isImporting}
+                  title={lang === "ar" ? "استيراد ZIP" : "Import ZIP"}
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs bg-card border border-border text-foreground rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  {isImporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                </button>
+              )}
+              {projectMemory && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowDeployMenu(v => !v)}
+                    disabled={isDeploying}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-card border border-border text-foreground rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    {isDeploying ? <Loader2 className="w-3 h-3 animate-spin" /> : <ExternalLink className="w-3 h-3" />}
+                    <span className="hidden sm:inline">{lang === "ar" ? "نشر" : "Deploy"}</span>
+                  </button>
+                  {showDeployMenu && (
+                    <div className="absolute top-full end-0 mt-1 bg-card border border-border rounded-xl shadow-2xl z-50 min-w-[150px] py-1 text-xs overflow-hidden">
+                      <button onClick={() => { handleDeployVercel(); setShowDeployMenu(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-start">
+                        <ExternalLink className="w-3.5 h-3.5 text-blue-400" /> Vercel
+                      </button>
+                      <button onClick={() => setShowDeployMenu(false)} className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-start text-muted-foreground">
+                        <Github className="w-3.5 h-3.5" /> GitHub
+                      </button>
+                      <button onClick={handleDeployCustomServer} className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors text-start">
+                        <Server className="w-3.5 h-3.5 text-green-400" />
+                        {lang === "ar" ? "سيرفر خاص" : "Custom Server"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {deployedUrl && (
+                <a href={deployedUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs bg-green-500/20 border border-green-500/30 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors">
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+              {htmlFile && (
+                <button
+                  onClick={() => setIsFullscreen(v => !v)}
+                  title={lang === "ar" ? "ملء الشاشة" : "Fullscreen"}
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs bg-card border border-border text-muted-foreground rounded-lg hover:text-foreground transition-colors"
+                >
+                  {isFullscreen ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
+      {/* ── Standby Mode Bar ── */}
+      {projectMemory && !isExecuting && (
+          <div className="shrink-0 border-b border-border bg-card/5 px-3 py-2">
+            <div className="max-w-4xl mx-auto flex items-center gap-2">
+              <div className="flex-1 flex items-center gap-2 bg-background border border-border rounded-xl px-3 py-1.5 focus-within:border-primary/50 transition-colors">
+                <RotateCcw className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <input
+                  value={standbyPrompt}
+                  onChange={e => setStandbyPrompt(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") handleStandbyEdit(); }}
+                  placeholder={lang === "ar" ? "✏️ عدّل المشروع بدون إعادة بناء... (مثال: غيّر اللون للأزرق، أضف قسم تواصل)" : "✏️ Edit without rebuilding... (e.g. change color to blue, add contact section)"}
+                  className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/40"
+                  disabled={isStandbyExecuting}
+                />
+                {isStandbyExecuting && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />}
+              </div>
+              <button
+                onClick={handleStandbyEdit}
+                disabled={!standbyPrompt.trim() || isStandbyExecuting}
+                className={cn("px-3 py-1.5 text-xs rounded-xl transition-all", standbyPrompt.trim() && !isStandbyExecuting ? "gradient-primary text-white" : "bg-muted text-muted-foreground/40")}
+              >
+                {lang === "ar" ? "تعديل" : "Edit"}
+              </button>
+              <button
+                onClick={() => projectMemory && saveVersion(projectMemory.allFiles)}
+                className="px-3 py-1.5 text-xs rounded-xl bg-card border border-border text-muted-foreground hover:text-foreground transition-all"
+                title={lang === "ar" ? "حفظ إصدار" : "Save version"}
+              >
+                <History className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+        {/* ── Hidden file input for ZIP import ── */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".zip"
+          className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleImportZip(f); e.target.value = ""; }}
+        />
 
       {/* ── Main Content ── */}
       <div className="flex-1 overflow-hidden">
@@ -804,7 +1178,7 @@ export default function AgentBuilderPage() {
               {htmlFile ? (
                 <div className="bg-white rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
                   style={{ width: device === "desktop" ? "100%" : device === "tablet" ? "768px" : "390px", maxWidth: "100%", minHeight: "500px" }}>
-                  <iframe srcDoc={htmlFile.content} className="w-full border-0" style={{ height: "600px" }} sandbox="allow-scripts allow-same-origin allow-forms" title="Preview" />
+                  <iframe ref={iframeRef} srcDoc={injectConsoleInterceptor(htmlFile.content)} className="w-full border-0" style={{ height: "600px" }} sandbox="allow-scripts allow-same-origin allow-forms" title="Preview" />
                 </div>
               ) : (
                 <div className="text-center text-muted-foreground py-20">
@@ -851,6 +1225,114 @@ export default function AgentBuilderPage() {
                 <pre className="p-4 text-xs font-mono text-green-300 whitespace-pre-wrap leading-relaxed">
                   {allFiles[selectedFile].content}
                 </pre>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Console Tab ── */}
+        {activeTab === "console" && (
+          <div className="h-full flex flex-col overflow-hidden bg-gray-950">
+            <div className="shrink-0 flex items-center justify-between px-3 py-2 border-b border-border/30">
+              <span className="text-xs text-muted-foreground flex items-center gap-2">
+                <Terminal className="w-3.5 h-3.5" />
+                {lang === "ar" ? "سجل الكونسول" : "Console Log"} ({consoleMessages.length})
+              </span>
+              <button onClick={() => setConsoleMessages([])} className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+                {lang === "ar" ? "مسح" : "Clear"}
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-1 font-mono text-xs">
+              {consoleMessages.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground/40">
+                  {lang === "ar" ? "لا توجد رسائل بعد. افتح المعاينة لالتقاط رسائل الكونسول." : "No messages yet. Open preview to capture console messages."}
+                </div>
+              ) : consoleMessages.map((msg, i) => (
+                <div key={i} className={cn("flex items-start gap-2 py-0.5", msg.type === "error" ? "text-red-400" : msg.type === "warn" ? "text-yellow-400" : msg.type === "info" ? "text-blue-400" : "text-green-300")}>
+                  <span className="shrink-0 text-muted-foreground/40">{new Date(msg.timestamp).toLocaleTimeString()}</span>
+                  <span className={cn("shrink-0 px-1 rounded text-xs", msg.type === "error" ? "bg-red-500/20" : msg.type === "warn" ? "bg-yellow-500/20" : "bg-green-500/10")}>{msg.type}</span>
+                  <span className="break-all">{msg.message}</span>
+                </div>
+              ))}
+              <div ref={consoleEndRef} />
+            </div>
+          </div>
+        )}
+
+        {/* ── Version History Tab ── */}
+        {activeTab === "history" && (
+          <div className="h-full overflow-y-auto p-3">
+            <div className="max-w-2xl mx-auto space-y-2">
+              <p className="text-xs text-muted-foreground mb-3">
+                {lang === "ar" ? "الإصدارات المحفوظة — اضغط استعادة للرجوع لأي إصدار سابق" : "Saved versions — click Restore to go back to any previous version"}
+              </p>
+              {versions.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground/40">
+                  {lang === "ar" ? "لا توجد إصدارات محفوظة بعد. اضغط زر الإصدار في شريط التعديل." : "No saved versions yet. Click the version button in the edit bar."}
+                </div>
+              ) : [...versions].reverse().map(version => (
+                <div key={version.id} className="rounded-xl border border-border bg-card/50 p-3 flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{version.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{version.files.length} {lang === "ar" ? "ملف" : "files"} • {new Date(version.createdAt).toLocaleString()}</p>
+                  </div>
+                  <button
+                    onClick={() => restoreVersion(version)}
+                    className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-all"
+                  >
+                    {lang === "ar" ? "استعادة" : "Restore"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Observability Tab ── */}
+        {activeTab === "observe" && (
+          <div className="h-full overflow-y-auto p-3">
+            <div className="max-w-3xl mx-auto">
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="rounded-xl border border-border bg-card/50 p-3 text-center">
+                  <p className="text-2xl font-bold text-primary">${totalCost.toFixed(4)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{lang === "ar" ? "التكلفة الإجمالية" : "Total Cost"}</p>
+                </div>
+                <div className="rounded-xl border border-border bg-card/50 p-3 text-center">
+                  <p className="text-2xl font-bold text-yellow-400">{(totalTokens/1000).toFixed(1)}k</p>
+                  <p className="text-xs text-muted-foreground mt-1">{lang === "ar" ? "إجمالي التوكنز" : "Total Tokens"}</p>
+                </div>
+                <div className="rounded-xl border border-border bg-card/50 p-3 text-center">
+                  <p className="text-2xl font-bold text-green-400">{observability.length}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{lang === "ar" ? "عدد الخطوات" : "Steps"}</p>
+                </div>
+              </div>
+              {observability.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground/40">
+                  {lang === "ar" ? "لا توجد بيانات بعد. نفّذ مشروعاً لرؤية تفاصيل التكلفة." : "No data yet. Run a project to see cost details."}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-border overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-card/50 border-b border-border">
+                      <tr>
+                        <th className="px-3 py-2 text-start text-muted-foreground">{lang === "ar" ? "الوكيل" : "Agent"}</th>
+                        <th className="px-3 py-2 text-end text-muted-foreground">{lang === "ar" ? "توكنز" : "Tokens"}</th>
+                        <th className="px-3 py-2 text-end text-muted-foreground">{lang === "ar" ? "الوقت" : "Time"}</th>
+                        <th className="px-3 py-2 text-end text-muted-foreground">{lang === "ar" ? "التكلفة" : "Cost"}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {observability.map((entry, i) => (
+                        <tr key={i} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                          <td className="px-3 py-2 font-medium">{entry.agentId}</td>
+                          <td className="px-3 py-2 text-end text-muted-foreground">{(entry.tokensIn + entry.tokensOut).toLocaleString()}</td>
+                          <td className="px-3 py-2 text-end text-muted-foreground">{(entry.durationMs/1000).toFixed(1)}s</td>
+                          <td className="px-3 py-2 text-end text-yellow-400">${entry.costUSD.toFixed(5)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </div>

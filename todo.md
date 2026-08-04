@@ -86,3 +86,16 @@
 - [x] Supabase DATABASE_URL configuration (documented in README, user provides via env)
 - [x] Telegram bot notifications (router ready, needs TELEGRAM_BOT_TOKEN)
 - [x] GitHub/Vercel auto-deploy integration (admin panel ready, needs tokens)
+
+## Phase 8: Advanced Agent Features
+- [x] Console Panel - captures JS errors from iframe via postMessage
+- [x] ZIP Import - upload existing project ZIP to edit/improve
+- [x] Custom Server Deploy - FTP/SSH deployment instructions
+- [x] Standby Mode - edit project without full rebuild
+- [x] Version Control - save/restore snapshots
+- [x] Observability - token count + cost per step
+- [x] Full-screen Preview - maximize preview panel
+- [x] HTML Validation endpoint
+- [x] Deploy dropdown menu (Vercel, GitHub, Custom Server)
+- [x] New tabs: Console, History, Observe
+- [x] Token counter in tabs bar
