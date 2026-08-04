@@ -90,7 +90,7 @@ export default function CRMPage() {
   const { data: invoices } = trpc.crm.listInvoices.useQuery();
   const { data: tickets } = trpc.crm.listTickets.useQuery();
 
-  const filteredClients = (clients ?? []).filter(c =>
+  const filteredClients = (clients ?? []).filter((c: any) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     (c.email ?? "").toLowerCase().includes(search.toLowerCase())
   );
@@ -157,7 +157,7 @@ export default function CRMPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredClients.map(client => (
+              {filteredClients.map((client: any) => (
                 <Card key={client.id} className="bg-card border-border hover:border-primary/20 transition-all">
                   <CardContent className="p-4 flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
@@ -190,7 +190,7 @@ export default function CRMPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {invoices.map(inv => (
+              {invoices.map((inv: any) => (
                 <Card key={inv.id} className="bg-card border-border">
                   <CardContent className="p-4 flex items-center gap-4">
                     <FileText className="w-8 h-8 text-yellow-400 p-1.5 bg-yellow-500/10 rounded-lg shrink-0" />
@@ -219,7 +219,7 @@ export default function CRMPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {tickets.map(ticket => (
+              {tickets.map((ticket: any) => (
                 <Card key={ticket.id} className="bg-card border-border">
                   <CardContent className="p-4 flex items-center gap-4">
                     <div className={cn("w-2 h-2 rounded-full shrink-0", {

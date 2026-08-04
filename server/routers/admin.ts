@@ -25,7 +25,7 @@ export const adminRouter = router({
     }
     try {
       const keys = await db.select().from(apiKeys).where(eq(apiKeys.userId, userId));
-      return keys.map(k => ({ ...k, keyValue: "***" + k.keyValue.slice(-4) }));
+      return keys.map((k: any) => ({ ...k, keyValue: "***" + k.keyValue.slice(-4) }));
     } catch { return []; }
   }),
 

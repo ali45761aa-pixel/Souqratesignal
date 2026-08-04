@@ -257,7 +257,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {projects.slice(0, 5).map((project) => (
+                {projects.slice(0, 5).map((project: any) => (
                   <Link key={project.id} href={`/projects/${project.id}`}>
                     <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent transition-colors cursor-pointer">
                       <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">

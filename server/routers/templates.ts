@@ -10,7 +10,7 @@ export const templatesRouter = router({
       const db = await getDb();
       if (!db) return [];
       const all = await db.select().from(templates).where(eq(templates.isActive, true)).orderBy(desc(templates.usageCount));
-      if (input?.category) return all.filter(t => t.category === input.category);
+      if (input?.category) return all.filter((t: any) => t.category === input.category);
       return all;
     }),
 

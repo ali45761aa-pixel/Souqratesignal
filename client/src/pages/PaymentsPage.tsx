@@ -142,9 +142,9 @@ export default function PaymentsPage() {
   );
 
   const statusCounts = {
-    pending: (payments ?? []).filter(p => p.status === "pending").length,
-    confirmed: (payments ?? []).filter(p => p.status === "confirmed").length,
-    total: (payments ?? []).reduce((s, p) => s + p.amount, 0),
+    pending: (payments ?? []).filter((p: any) => p.status === "pending").length,
+    confirmed: (payments ?? []).filter((p: any) => p.status === "confirmed").length,
+    total: (payments ?? []).reduce((s: any, p: any) => s + p.amount, 0),
   };
 
   return (
@@ -281,7 +281,7 @@ export default function PaymentsPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {payments.map(p => (
+              {payments.map((p: any) => (
                 <Card key={p.id} className="bg-card border-border">
                   <CardContent className="p-4 flex items-center gap-4">
                     <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">

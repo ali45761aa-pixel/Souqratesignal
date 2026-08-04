@@ -35,7 +35,7 @@ export default function ProjectsPage() {
     onSuccess: () => { toast.success(lang === "ar" ? "تم حذف المشروع" : "Project deleted"); refetch(); },
   });
 
-  const filtered = (projects ?? []).filter(p => {
+  const filtered = (projects ?? []).filter((p: any) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.prompt.toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === "all" || p.status === filter;
@@ -95,7 +95,7 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(project => (
+          {filtered.map((project: any) => (
             <Card key={project.id} className="bg-card border-border hover:border-primary/30 transition-all group">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2 mb-3">

@@ -102,17 +102,17 @@ export const paymentsRouter = router({
     const db = await getDb();
     const userId = (ctx as any).user?.id ?? 1;
     if (!db) {
-      const total = MOCK_PAYMENTS.reduce((s, p) => s + (p.amount ?? 0), 0);
-      const confirmed = MOCK_PAYMENTS.filter(p => p.status === "confirmed").length;
-      const pending = MOCK_PAYMENTS.filter(p => p.status === "pending").length;
+      const total = MOCK_PAYMENTS.reduce((s: number, p: any) => s + (p.amount ?? 0), 0);
+      const confirmed = MOCK_PAYMENTS.filter((p: any) => p.status === "confirmed").length;
+      const pending = MOCK_PAYMENTS.filter((p: any) => p.status === "pending").length;
       return { total, confirmed, pending };
     }
     try {
       const all = await db.select().from(payments).where(eq(payments.userId, userId));
       return {
-        total: all.filter(p => p.status === "confirmed").reduce((s, p) => s + (p.amount ?? 0), 0),
-        confirmed: all.filter(p => p.status === "confirmed").length,
-        pending: all.filter(p => p.status === "pending").length,
+        total: all.filter((p: any) => p.status === "confirmed").reduce((s: number, p: any) => s + (p.amount ?? 0), 0),
+        confirmed: all.filter((p: any) => p.status === "confirmed").length,
+        pending: all.filter((p: any) => p.status === "pending").length,
       };
     } catch { return { total: 0, confirmed: 0, pending: 0 }; }
   }),

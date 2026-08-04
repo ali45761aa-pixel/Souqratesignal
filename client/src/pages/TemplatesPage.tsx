@@ -61,7 +61,7 @@ export default function TemplatesPage() {
 
   const categories = ["all", ...Array.from(new Set(BUILTIN_TEMPLATES.map(t => t.category)))];
 
-  const filtered = templates.filter(tpl => {
+  const filtered = templates.filter((tpl: any) => {
     const name = lang === "ar" ? (tpl.nameAr ?? tpl.name) : tpl.name;
     const matchSearch = name.toLowerCase().includes(search.toLowerCase());
     const matchCat = activeCategory === "all" || tpl.category === activeCategory;
@@ -115,7 +115,7 @@ export default function TemplatesPage() {
 
       {/* Templates Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map((tpl) => (
+        {filtered.map((tpl: any) => (
           <Card key={tpl.id} className="bg-card border-border hover:border-primary/30 transition-all duration-200 group overflow-hidden">
             {/* Preview Image Placeholder */}
             <div className="h-36 bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center relative overflow-hidden">
@@ -142,9 +142,9 @@ export default function TemplatesPage() {
                 <h3 className="text-sm font-semibold leading-tight">
                   {lang === "ar" ? (tpl.nameAr ?? tpl.name) : tpl.name}
                 </h3>
-                <Badge variant="outline" className={cn("text-xs shrink-0", THEME_COLORS[tpl.theme ?? "modern"])}>
+                <Badge variant="outline" className={cn("text-xs shrink-0", THEME_COLORS[(tpl.theme ?? "modern") as keyof typeof THEME_COLORS])}>
                   {lang === "ar"
-                    ? { minimal:"بسيط", bold:"جريء", modern:"عصري" }[tpl.theme ?? "modern"]
+                    ? ({ minimal:"بسيط", bold:"جريء", modern:"عصري" } as Record<string,string>)[tpl.theme ?? "modern"]
                     : tpl.theme}
                 </Badge>
               </div>

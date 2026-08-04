@@ -1,6 +1,10 @@
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+// ── Auto-detect database type from DATABASE_URL ───────────────────────────────
+// Supports: PostgreSQL (Supabase) and MySQL (TiDB)
+import { drizzle as drizzleMysql } from "drizzle-orm/mysql2";
+import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import mysql from "mysql2/promise";
+import { Pool as PgPool } from "pg";
 import {
   InsertUser,
   users,
@@ -26,13 +30,28 @@ import {
   referrals,
 } from "../drizzle/schema";
 
-let _pool: mysql.Pool | null = null;
-let _db: ReturnType<typeof drizzle> | null = null;
+let _pool: mysql.Pool | PgPool | null = null;
+let _db: any = null;
+
+function isPostgres(url: string): boolean {
+  return url.startsWith("postgresql://") || url.startsWith("postgres://");
+}
+
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _pool = mysql.createPool({ uri: process.env.DATABASE_URL, ssl: {} });
-      _db = drizzle(_pool) as any;
+      const url = process.env.DATABASE_URL;
+      if (isPostgres(url)) {
+        // PostgreSQL (Supabase)
+        _pool = new PgPool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+        _db = drizzlePg(_pool as PgPool) as any;
+        console.log("[Database] Connected to PostgreSQL (Supabase)");
+      } else {
+        // MySQL (TiDB)
+        _pool = mysql.createPool({ uri: url, ssl: {} });
+        _db = drizzleMysql(_pool as mysql.Pool) as any;
+        console.log("[Database] Connected to MySQL (TiDB)");
+      }
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;

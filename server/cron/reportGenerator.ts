@@ -21,8 +21,8 @@ export async function generateWeeklyReport(userId: number) {
   ]);
 
   const totalRevenue = weekPayments
-    .filter(p => p.status === "confirmed")
-    .reduce((sum, p) => sum + p.amount, 0);
+    .filter((p: any) => p.status === "confirmed")
+    .reduce((sum: any, p: any) => sum + p.amount, 0);
 
   const report = {
     period: "weekly",
@@ -30,17 +30,17 @@ export async function generateWeeklyReport(userId: number) {
     to: new Date().toISOString(),
     projects: {
       total: weekProjects.length,
-      completed: weekProjects.filter(p => p.status === "completed").length,
-      active: weekProjects.filter(p => p.status === "active").length,
-      failed: weekProjects.filter(p => p.status === "failed").length,
+      completed: weekProjects.filter((p: any) => p.status === "completed").length,
+      active: weekProjects.filter((p: any) => p.status === "active").length,
+      failed: weekProjects.filter((p: any) => p.status === "failed").length,
     },
     payments: {
       total: weekPayments.length,
-      confirmed: weekPayments.filter(p => p.status === "confirmed").length,
+      confirmed: weekPayments.filter((p: any) => p.status === "confirmed").length,
       revenue: totalRevenue,
     },
-    apiCost: weekProjects.reduce((sum, p) => sum + (p.totalCost ?? 0), 0),
-    tokensUsed: weekProjects.reduce((sum, p) => sum + (p.tokensUsed ?? 0), 0),
+    apiCost: weekProjects.reduce((sum: any, p: any) => sum + (p.totalCost ?? 0), 0),
+    tokensUsed: weekProjects.reduce((sum: any, p: any) => sum + (p.tokensUsed ?? 0), 0),
     generatedAt: new Date().toISOString(),
   };
 

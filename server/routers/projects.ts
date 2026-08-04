@@ -113,11 +113,11 @@ export const projectsRouter = router({
       const all = MOCK_PROJECTS;
       return {
         total: all.length,
-        active: all.filter(p => p.status === "active").length,
-        completed: all.filter(p => p.status === "completed").length,
-        failed: all.filter(p => p.status === "failed").length,
-        totalCost: all.reduce((s, p) => s + (p.totalCost ?? 0), 0),
-        tokensUsed: all.reduce((s, p) => s + (p.tokensUsed ?? 0), 0),
+        active: all.filter((p: any) => p.status === "active").length,
+        completed: all.filter((p: any) => p.status === "completed").length,
+        failed: all.filter((p: any) => p.status === "failed").length,
+        totalCost: all.reduce((s: any, p: any) => s + (p.totalCost ?? 0), 0),
+        tokensUsed: all.reduce((s: any, p: any) => s + (p.tokensUsed ?? 0), 0),
       };
     }
     try {
@@ -125,11 +125,11 @@ export const projectsRouter = router({
       const all = await db.select().from(projects).where(eq(projects.userId, userId));
       return {
         total: all.length,
-        active: all.filter(p => p.status === "active").length,
-        completed: all.filter(p => p.status === "completed").length,
-        failed: all.filter(p => p.status === "failed").length,
-        totalCost: all.reduce((s, p) => s + (p.totalCost ?? 0), 0),
-        tokensUsed: all.reduce((s, p) => s + (p.tokensUsed ?? 0), 0),
+        active: all.filter((p: any) => p.status === "active").length,
+        completed: all.filter((p: any) => p.status === "completed").length,
+        failed: all.filter((p: any) => p.status === "failed").length,
+        totalCost: all.reduce((s: any, p: any) => s + (p.totalCost ?? 0), 0),
+        tokensUsed: all.reduce((s: any, p: any) => s + (p.tokensUsed ?? 0), 0),
       };
     } catch { return { total: 0, active: 0, completed: 0, failed: 0, totalCost: 0, tokensUsed: 0 }; }
   }),
