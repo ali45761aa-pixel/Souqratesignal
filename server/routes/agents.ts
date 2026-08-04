@@ -645,7 +645,7 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
         signal: AbortSignal.timeout(180000),
         body: JSON.stringify({
           model: "claude-sonnet-4-5-20250929",
-          max_tokens: 16000,
+          max_tokens: 64000,
           temperature: 0.7,
           stream: true,
           system: systemPrompt,
@@ -725,21 +725,36 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
       if (isTruncated) {
         res.write(`data: ${JSON.stringify({ type: "continuation_start", message: "Completing truncated HTML..." })}\n\n`);
         try {
-          const contResponse = await fetch("https://api.deepseek.com/chat/completions", {
+          // Use same model for continuation to maintain style consistency
+          const contUrl = useClaude ? "https://api.anthropic.com/v1/messages" : "https://api.deepseek.com/chat/completions";
+          const contHeaders = useClaude 
+            ? { "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01", "content-type": "application/json" }
+            : { "Content-Type": "application/json", "Authorization": `Bearer ${key}` };
+          const contBody = useClaude
+            ? JSON.stringify({
+                model: "claude-sonnet-4-5-20250929",
+                max_tokens: 32000,
+                temperature: 0.1,
+                stream: true,
+                system: "You are completing an HTML document that was cut off. Continue EXACTLY from where it stopped. Do NOT repeat any content already written. Do NOT add explanations. Output HTML code only.",
+                messages: [{ role: "user", content: "Here is the HTML so far (continue from where it ends):\n\n" + fullContent.slice(-8000) + "\n\nContinue from exactly where you stopped. Complete all remaining pages/sections, close all open tags, and end with </body></html>." }],
+              })
+            : JSON.stringify({
+                model: "deepseek-chat",
+                messages: [
+                  { role: "system", content: "You are completing an HTML document that was cut off. Continue EXACTLY from where it stopped. Do NOT repeat any content already written. Do NOT add explanations. Output HTML code only." },
+                  { role: "assistant", content: fullContent.slice(-8000) },
+                  { role: "user", content: "The HTML was cut off. Continue from exactly where you stopped. Complete all remaining pages/sections, close all open tags, and end with </body></html>." }
+                ],
+                max_tokens: 16000,
+                temperature: 0.1,
+                stream: true,
+              });
+          const contResponse = await fetch(contUrl, {
             method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-            signal: AbortSignal.timeout(120000),
-            body: JSON.stringify({
-              model: "deepseek-chat",
-              messages: [
-                { role: "system", content: "You are completing an HTML document that was cut off. Continue EXACTLY from where it stopped. Do NOT repeat any content already written. Do NOT add explanations. Output HTML code only." },
-                { role: "assistant", content: fullContent },
-                { role: "user", content: "The HTML was cut off. Continue from exactly where you stopped. Complete all remaining sections, close all open tags, and end with </body></html>." }
-              ],
-              max_tokens: 12000,
-              temperature: 0.1,
-              stream: true,
-            }),
+            headers: contHeaders as any,
+            signal: AbortSignal.timeout(180000),
+            body: contBody,
           });
           const contReader = contResponse.body?.getReader();
           const contDecoder = new TextDecoder();
@@ -752,7 +767,13 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
                 if (!contLine.startsWith("data: ") || contLine.includes("[DONE]")) continue;
                 try {
                   const contParsed = JSON.parse(contLine.slice(6));
-                  const contText = contParsed.choices?.[0]?.delta?.content || "";
+                  // Handle both Claude and DeepSeek SSE formats
+                  let contText = "";
+                  if (contParsed.type === "content_block_delta") {
+                    contText = contParsed.delta?.text || "";
+                  } else {
+                    contText = contParsed.choices?.[0]?.delta?.content || "";
+                  }
                   if (contText) {
                     contContent += contText;
                     res.write(`data: ${JSON.stringify({ type: "chunk", content: contText })}\n\n`);
@@ -770,6 +791,30 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
     }
 
     const files = extractFiles(finalContent, agentId);
+    
+    // ── Quality Gate: reject HTML that's too short for frontend agents ──────
+    const isVisualAgent = ["frontend", "reviewer", "auditor"].includes(agentId);
+    if (isVisualAgent && files.length > 0 && files[0].language === "html") {
+      const htmlContent = files[0].content;
+      const lineCount = htmlContent.split("\n").length;
+      const hasMultiplePages = htmlContent.includes("x-show=\"page");
+      const hasSections = (htmlContent.match(/<section/gi) || []).length;
+      
+      // Quality metrics
+      const qualityScore = {
+        lines: lineCount,
+        multiPage: hasMultiplePages,
+        sections: hasSections,
+        hasNav: htmlContent.includes("<nav"),
+        hasFooter: htmlContent.includes("<footer"),
+        hasAnimations: htmlContent.includes("aos") || htmlContent.includes("x-transition"),
+        hasResponsive: htmlContent.includes("@media") || htmlContent.includes("md:") || htmlContent.includes("lg:"),
+      };
+      
+      // Send quality metrics to client
+      res.write(`data: ${JSON.stringify({ type: "quality_check", metrics: qualityScore })}\n\n`);
+    }
+    
     // Estimate token usage (approximate: 1 token ≈ 4 chars)
     const estimatedPromptTokens = Math.round(systemPrompt.length / 4);
     const estimatedCompletionTokens = Math.round(finalContent.length / 4);
@@ -805,7 +850,7 @@ agentsRouter.post("/self-heal", async (req: Request, res: Response) => {
 مهمتك: إصلاح جميع الأخطاء وإرجاع الكود الكامل المُصلَح.
 
 قواعد صارمة:
-1. أرجع الكود HTML الكامل فقط داخل \`\`\`html ... \`\`\`
+1. أرجع الكود HTML الكامل فقط داخل ` + "`" + `html ... ` + "`" + `
 2. لا تحذف أي ميزة موجودة — فقط أصلح الأخطاء
 3. تأكد أن كل الـ functions معرّفة قبل استخدامها
 4. أصلح مشاكل undefined variables وmissing functions وsyntax errors
@@ -814,7 +859,7 @@ agentsRouter.post("/self-heal", async (req: Request, res: Response) => {
 Your task: Fix all errors and return the complete fixed code.
 
 Strict rules:
-1. Return ONLY the complete HTML inside \`\`\`html ... \`\`\`
+1. Return ONLY the complete HTML inside ` + "`" + `html ... ` + "`" + `
 2. Do NOT remove any existing feature — only fix errors
 3. Ensure all functions are defined before use
 4. Fix undefined variables, missing functions, and syntax errors
@@ -955,7 +1000,7 @@ agentsRouter.post("/generate-format", async (req: Request, res: Response) => {
     react: `You are a React expert. Convert this project to a complete React application.
 Output a SINGLE self-contained React app using CDN (React 18 + ReactDOM via unpkg).
 Use: <script type="text/babel"> for JSX. Include Tailwind CSS CDN.
-Return complete HTML file with embedded React app inside \`\`\`html ... \`\`\`
+Return complete HTML file with embedded React app inside ` + "`" + `html ... ` + "`" + `
 Project: ${prompt}
 ${existingHtml ? `Existing design reference:\n${existingHtml.slice(0, 3000)}` : ""}`,
 
@@ -986,7 +1031,7 @@ Project: ${prompt}`,
 Use: Tailwind CSS CDN + Alpine.js CDN + AOS animations CDN.
 Include: Hero, Features, Testimonials, Pricing, CTA, Footer sections.
 Make it pixel-perfect, mobile-first, with smooth animations.
-Return complete HTML inside \`\`\`html ... \`\`\`
+Return complete HTML inside ` + "`" + `html ... ` + "`" + `
 Project: ${prompt}`,
   };
 
@@ -1363,7 +1408,7 @@ ACCESSIBILITY (non-negotiable):
 - Color contrast: minimum 4.5:1 for text
 - Focus styles: visible outline for keyboard navigation
 
-Return ONLY the complete HTML code inside \`\`\`html ... \`\`\` — no text outside the code block${ctx}`,
+Return ONLY the complete HTML code inside ` + "`" + `html ... ` + "`" + ` — no text outside the code block${ctx}`,
     backend: ar
      ? `أنت مطور Backend خبير. اكتب كود Node.js + Express كاملاً:
 - RESTful API endpoints
@@ -1616,88 +1661,39 @@ Return optimized code${ctx}`,
 7. How to install and run
 Make summary comprehensive and accurate${ctx}`,
     reviewer: ar
-      ? `أنت وكيل المراجعة الاحترافية — مهمتك رفع جودة الكود من جيد إلى مذهل.
+      ? `أنت مراجع كود Frontend خبير بمستوى Awwwards. مهمتك مراجعة وتحسين الموقع ليصبح جاهزاً للبيع.
 
-لديك الكود الحالي للمشروع. مهمتك:
+⚠️ قواعد المراجعة الإلزامية:
+1. تأكد أن الموقع متعدد الصفحات حقيقياً (Home, About, Services, Portfolio, Contact كحد أدنى)
+2. تأكد أن كل صفحة كاملة ومفصّلة — إذا كانت قصيرة أضف محتوى
+3. تأكد من وجود: nav sticky + footer 4-columns + scroll animations + hover effects
+4. تأكد من responsive design حقيقي (ليس فقط يعمل بل يبدو رائعاً على الموبايل)
+5. تأكد من عدم وجود Lorem ipsum أو placeholder text
+6. أصلح أي CSS مكسور أو ألوان غير متناسقة
+7. أضف micro-interactions مفقودة (button press, card hover lift, smooth transitions)
+8. تأكد من accessibility (alt text, aria-labels, focus styles)
 
-1. **إصلاح الأخطاء التقنية:**
-   - أخطاء JavaScript (undefined variables, missing functions)
-   - CSS غير صحيح (rgba على hex variables → استخدم rgba(var(--primary-rgb), 0.1))
-   - روابط مكسورة أو أزرار لا تعمل
-   - مشاكل responsive على الموبايل
+سياق المشروع:
+${ctx}
 
-2. **تحسين التصميم البصري:**
-   - إذا كان Hero section ضعيفاً → أضف خلفية gradient أو صورة
-   - إذا كانت البطاقات بسيطة → أضف hover effects وtransitions
-   - إذا كانت الألوان غير متناسقة → اضبطها مع Design System
-   - إذا كان المحتوى placeholder → استبدله بمحتوى حقيقي مناسب
+أرجع الكود المحسّن كاملاً داخل a code block (html format) — لا تكتب شرحاً خارج الكود`
+      : `You are an Awwwards-level Frontend code reviewer. Your mission is to review and enhance the website to be sale-ready.
 
-3. **إضافة ما ينقص:**
-   - إذا لم يكن هناك scroll reveal → أضف IntersectionObserver
-   - إذا لم يكن هناك counter animation → أضف للأرقام
-   - إذا لم يكن هناك mobile menu → أضفه
-   - إذا كان Footer ناقصاً → أكمله
+⚠️ MANDATORY REVIEW RULES:
+1. Ensure the website is truly multi-page (Home, About, Services, Portfolio, Contact minimum)
+2. Ensure each page is complete and detailed — if short, ADD content
+3. Verify: sticky nav + 4-column footer + scroll animations + hover effects
+4. Verify REAL responsive design (not just "works" but "looks amazing" on mobile)
+5. Verify NO Lorem ipsum or placeholder text exists
+6. Fix any broken CSS or inconsistent colors
+7. Add missing micro-interactions (button press, card hover lift, smooth transitions)
+8. Verify accessibility (alt text, aria-labels, focus styles)
 
-4. **رفع مستوى الاحترافية:**
-   - أضف micro-interactions (hover, focus, active states)
-   - تأكد من أن كل صورة لها alt text مناسب
-   - أضف loading="lazy" للصور
-   - تأكد من أن الـ nav sticky مع backdrop-filter
+Project context:
+${ctx}
 
-أرجع الكود HTML الكامل المُحسَّن فقط داخل \`\`\`html ... \`\`\` — بدون أي شرح خارجه.${ctx}`
-      : `You are the Professional Review Agent — your mission is to elevate code from good to world-class Awwwards level.
-
-You have the current project HTML. Apply ALL of these improvements:
-
-═══════════════════════════════════════════
-LAYER 1 — TECHNICAL FIXES (non-negotiable):
-═══════════════════════════════════════════
-- Fix all JS errors (undefined variables, missing functions, broken event listeners)
-- Fix CSS: rgba(var(--primary-rgb), 0.1) NOT rgba(var(--primary), 0.1)
-- Fix broken links, non-working buttons, form submissions
-- Fix responsive issues at 320px, 768px, 1200px breakpoints
-
-═══════════════════════════════════════════
-LAYER 2 — MISSING LIBRARIES (add if absent):
-═══════════════════════════════════════════
-- AOS library: <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet"> + script
-- Lucide icons: <script src="https://unpkg.com/lucide@latest"></script>
-- Alpine.js: <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-- Google Font (Inter or Manrope or Space Grotesk) if not present
-
-═══════════════════════════════════════════
-LAYER 3 — MOTION & MICRO-INTERACTIONS:
-═══════════════════════════════════════════
-- Add data-aos="fade-up" data-aos-delay="[0/100/200]" to all cards and sections
-- Add AOS.init({ duration: 800, once: true }) in script
-- Button :active → transform: scale(0.97) with 160ms ease-out
-- Card hover → translateY(-4px) + box-shadow increase
-- Nav links → underline animation on hover
-- All transitions: cubic-bezier(0.23, 1, 0.32, 1) — NOT ease or linear
-
-═══════════════════════════════════════════
-LAYER 4 — DETAIL IMPROVEMENTS:
-═══════════════════════════════════════════
-- Replace ALL Lorem ipsum with real relevant content
-- Add section-label (small text above each section title)
-- Add FAQ section with Alpine.js accordion if missing
-- Add Back-to-top button (fixed, bottom-right)
-- Add newsletter form in footer if missing
-- Ensure stats have data-suffix="+" for counter animation
-- Add loading="lazy" to ALL images
-
-═══════════════════════════════════════════
-LAYER 5 — ACCESSIBILITY & SEO:
-═══════════════════════════════════════════
-- All images: meaningful alt text (not "image" or "photo")
-- All buttons/links: aria-label where text is unclear
-- Add <meta name="description"> if missing
-- Add Open Graph meta tags (og:title, og:description, og:image)
-- Ensure color contrast ≥ 4.5:1 for all text
-- Add visible focus styles for keyboard navigation
-
-Return ONLY the complete improved HTML inside \`\`\`html ... \`\`\` — no explanation outside.${ctx}`,
-    auditor: ar
+Return the COMPLETE enhanced code inside a code block (html format) — no explanation outside the code block`,
+        auditor: ar
       ? `أنت وكيل التدقيق العميق والتحسين النهائي — آخر وكيل يعمل على المشروع.
 
 مهمتك: تحويل الموقع من "جيد" إلى "احترافي يُباع بآلاف الدولارات".
@@ -1725,7 +1721,7 @@ Return ONLY the complete improved HTML inside \`\`\`html ... \`\`\` — no expla
 - تأكد من أن الأرقام في Stats منطقية ومقنعة
 
 لكل مشكلة وجدتها: "🔴 حرجة" / "🟡 تحسين" / "🟢 ملاحظة"
-ثم أرجع الكود HTML الكامل المُحسَّن فقط داخل \`\`\`html ... \`\`\`
+ثم أرجع الكود HTML الكامل المُحسَّن فقط داخل ` + "`" + `html ... ` + "`" + `
 في النهاية أضف: "⭐ التقييم النهائي: [X]/10"${ctx}`
       : `You are the Deep Audit & Final Enhancement Agent — the LAST agent. Your output is what the user sees.
 
@@ -1779,7 +1775,7 @@ PHASE 4 — CONTENT FINAL CHECK:
 
 Rate each issue: 🔴 Critical (breaks UX) / 🟡 Improvement / 🟢 Polish
 
-Return ONLY the complete final HTML inside \`\`\`html ... \`\`\`
+Return ONLY the complete final HTML inside ` + "`" + `html ... ` + "`" + `
 End with: "⭐ Quality Score: [X]/10 | 🚀 Production Ready: [Yes/Almost/No]"${ctx}`,
 
     strategy: ar
