@@ -84,10 +84,10 @@ export const adminRouter = router({
       try {
         const existing = await db.select({ id: aiSettings.id }).from(aiSettings).where(eq(aiSettings.userId, userId)).limit(1);
         if (existing.length > 0) {
-          const rows = await db.update(aiSettings).set({ ...input, updatedAt: new Date() }).where(eq(aiSettings.userId, userId)).returning();
+          const rows = await db.update(aiSettings).set({ ...input, updatedAt: new Date() }).where(eq(aiSettings.userId, userId)) as any;
           return rows[0];
         } else {
-          const rows = await db.insert(aiSettings).values({ userId, ...input } as any).returning();
+          const rows = await db.insert(aiSettings).values({ userId, ...input } as any).$returningId();
           return rows[0];
         }
       } catch { Object.assign(MOCK_AI_SETTINGS, input); return MOCK_AI_SETTINGS; }

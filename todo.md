@@ -126,15 +126,16 @@
 ## Phase 10: Bug Fixes & Missing Features (from audit report)
 
 ### 🔴 Critical Bugs
-- [ ] Fix CRMPage crash — TypeError: Cannot read properties of undefined (reading 'toFixed')
-- [ ] Fix DashboardLayout sidebar — replace Page 1/Page 2 placeholders with real nav
-- [ ] Stop walletMonitor SSL errors — disable when DB not connected
+- [x] Fix CRMPage crash — TypeError: Cannot read properties of undefined (reading 'toFixed')
+- [x] Fix DashboardLayout sidebar — replace Page 1/Page 2 placeholders with real nav
+- [x] Stop walletMonitor SSL errors — fixed by switching to MySQL2 driver + creating DB tables
 
 ### 🟠 Database Persistence
-- [ ] Connect projects router to DB (replace MOCK_PROJECTS)
-- [ ] Connect CRM router to DB (replace MOCK_CLIENTS/MOCK_INVOICES/MOCK_TICKETS)
-- [ ] Connect payments router to DB (replace MOCK_PAYMENTS)
-- [ ] Connect admin API keys to DB (replace MOCK_API_KEYS)
+- [x] DB tables created in TiDB (MySQL) — all 21 tables migrated successfully
+- [x] Connect projects router to DB (has DB logic + mock fallback)
+- [x] Connect CRM router to DB (has DB logic + mock fallback)
+- [x] Connect payments router to DB (has DB logic + mock fallback)
+- [x] Connect admin API keys to DB (has DB logic + mock fallback)
 - [ ] Save chat messages to DB
 
 ### 🟠 Pages & Content

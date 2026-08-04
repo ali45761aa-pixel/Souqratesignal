@@ -26,7 +26,7 @@ export const crmRouter = router({
         MOCK_CLIENTS.push(client); return client;
       }
       try {
-        const rows = await db.insert(clients).values({ userId, name: input.name, email: input.email, phone: input.phone, company: input.company, country: input.country, notes: input.notes }).returning();
+        const rows = await db.insert(clients).values({ userId, name: input.name, email: input.email, phone: input.phone, company: input.company, country: input.country, notes: input.notes }).$returningId();
         return rows[0];
       } catch {
         const client = { id: MOCK_CLIENTS.length + 1, userId, ...input, totalPaid: 0, createdAt: new Date(), updatedAt: new Date() };
@@ -41,7 +41,7 @@ export const crmRouter = router({
       if (!db) { const c = MOCK_CLIENTS.find(c => c.id === input.id); if (c) Object.assign(c, input); return c; }
       try {
         const { id, ...updates } = input;
-        const rows = await db.update(clients).set({ ...updates, updatedAt: new Date() }).where(eq(clients.id, id)).returning();
+        const rows = await db.update(clients).set({ ...updates, updatedAt: new Date() }).where(eq(clients.id, id)) as any;
         return rows[0];
       } catch { return null; }
     }),
@@ -74,7 +74,7 @@ export const crmRouter = router({
         MOCK_INVOICES.push(inv); return inv;
       }
       try {
-        const rows = await db.insert(invoices).values({ userId, invoiceNumber, clientId: input.clientId, amount: input.amount, currency: input.currency, notes: input.description, status: "pending" as any, dueDate: input.dueDate ? new Date(input.dueDate) : new Date(Date.now() + 30 * 86400000) }).returning();
+        const rows = await db.insert(invoices).values({ userId, invoiceNumber, clientId: input.clientId, amount: input.amount, currency: input.currency, notes: input.description, status: "pending" as any, dueDate: input.dueDate ? new Date(input.dueDate) : new Date(Date.now() + 30 * 86400000) }).$returningId();
         return rows[0];
       } catch {
         const inv = { id: MOCK_INVOICES.length + 1, userId, invoiceNumber, ...input, status: "pending", createdAt: new Date() };
@@ -100,7 +100,7 @@ export const crmRouter = router({
         MOCK_TICKETS.push(ticket); return ticket;
       }
       try {
-        const rows = await db.insert(tickets).values({ userId, subject: input.subject, message: input.message, priority: input.priority as any, clientId: input.clientId, status: "open" as any }).returning();
+        const rows = await db.insert(tickets).values({ userId, subject: input.subject, message: input.message, priority: input.priority as any, clientId: input.clientId, status: "open" as any }).$returningId();
         return rows[0];
       } catch {
         const ticket = { id: MOCK_TICKETS.length + 1, userId, ...input, status: "open", createdAt: new Date() };
@@ -114,7 +114,7 @@ export const crmRouter = router({
       const db = await getDb();
       if (!db) { const t = MOCK_TICKETS.find(t => t.id === input.id); if (t) t.status = input.status; return t; }
       try {
-        const rows = await db.update(tickets).set({ status: input.status as any }).where(eq(tickets.id, input.id)).returning();
+        const rows = await db.update(tickets).set({ status: input.status as any }).where(eq(tickets.id, input.id)) as any;
         return rows[0];
       } catch { return null; }
     }),

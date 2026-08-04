@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
 import {
   InsertUser,
   users,
@@ -26,14 +26,13 @@ import {
   referrals,
 } from "../drizzle/schema";
 
-let _pool: Pool | null = null;
+let _pool: mysql.Pool | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
-
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
-      _db = drizzle(_pool);
+      _pool = mysql.createPool({ uri: process.env.DATABASE_URL, ssl: {} });
+      _db = drizzle(_pool) as any;
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -55,8 +54,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       loginMethod: user.loginMethod ?? null,
       role: user.role ?? "user",
       lastSignedIn: user.lastSignedIn ?? new Date(),
-    }).onConflictDoUpdate({
-      target: users.openId,
+    }).onDuplicateKeyUpdate({
       set: {
         name: user.name ?? null,
         email: user.email ?? null,

@@ -46,7 +46,7 @@ export const paymentsRouter = router({
           amount: input.amount, currency: input.currency,
           cryptoCurrency: input.cryptoCurrency as any,
           walletAddress, memo,
-        }).returning();
+        }).$returningId();
         return rows[0];
       } catch {
         const payment = { id: MOCK_PAYMENTS.length + 1, userId, method: "crypto", status: "pending", amount: input.amount, currency: input.currency, cryptoCurrency: input.cryptoCurrency, walletAddress, memo, createdAt: new Date(), updatedAt: new Date() };

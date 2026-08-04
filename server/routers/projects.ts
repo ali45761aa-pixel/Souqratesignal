@@ -59,7 +59,7 @@ export const projectsRouter = router({
           status: (input.status ?? "active") as any,
           totalCost: input.totalCost ?? 0,
           tokensUsed: input.tokensUsed ?? 0,
-        }).returning();
+        }).$returningId();
         return rows[0];
       } catch (e) {
         const newProject = { id: MOCK_PROJECTS.length + 1, userId, ...input, status: input.status ?? "active", totalCost: input.totalCost ?? 0, tokensUsed: input.tokensUsed ?? 0, isFavorite: false, tags: [], createdAt: new Date(), updatedAt: new Date() };
@@ -87,7 +87,7 @@ export const projectsRouter = router({
       }
       try {
         const { id, ...updates } = input;
-        const rows = await db.update(projects).set({ ...updates, updatedAt: new Date() }).where(eq(projects.id, id)).returning();
+        const rows = await db.update(projects).set({ ...updates, updatedAt: new Date() }).where(eq(projects.id, id)) as any;
         return rows[0];
       } catch { return null; }
     }),
@@ -146,7 +146,7 @@ export const projectsRouter = router({
       try {
         const rows = await db.select({ isFavorite: projects.isFavorite }).from(projects).where(eq(projects.id, input.id)).limit(1);
         const current = rows[0]?.isFavorite ?? false;
-        const updated = await db.update(projects).set({ isFavorite: !current }).where(eq(projects.id, input.id)).returning();
+        const updated = await db.update(projects).set({ isFavorite: !current }).where(eq(projects.id, input.id)) as any;
         return updated[0];
       } catch { return null; }
     }),
