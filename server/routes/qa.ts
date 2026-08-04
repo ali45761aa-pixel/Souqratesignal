@@ -332,3 +332,141 @@ function interactiveCheck(html: string) {
 }
 
 export { qaRouter };
+
+// ── 5. HTML Reconstructor — final clean pass after all agents complete ───────
+qaRouter.post("/reconstruct", async (req: Request, res: Response) => {
+  const { html, projectName = "Website", lang = "en" } = req.body;
+  if (!html) return res.status(400).json({ error: "html required" });
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const ar = lang === "ar";
+
+  // Extract what we can from the messy HTML first
+  const extracted = extractCleanHtml(html);
+
+  const prompt = ar
+    ? `أنت مهندس HTML محترف. لديك كود HTML قد يحتوي على نصوص مختلطة أو أخطاء.
+
+مهمتك: أعد كتابة هذا كـ HTML نظيف كامل ومتكامل.
+
+القواعد الصارمة:
+1. ابدأ بـ <!DOCTYPE html> مباشرة — لا نص قبله أبداً
+2. احتفظ بكل CSS و JavaScript والمحتوى الأصلي
+3. أصلح أي HTML tags مكسورة أو غير مغلقة
+4. تأكد من وجود <html>, <head>, <body> بشكل صحيح
+5. أزل أي نص عادي خارج الـ HTML tags
+6. لا تغير التصميم أو المحتوى — فقط نظّف البنية
+
+الكود المُدخَل:
+${extracted.slice(0, 25000)}
+
+أرجع HTML الكامل النظيف فقط — لا شرح، لا تعليق، لا markdown — فقط الكود مباشرة بدون \`\`\`html`
+    : `You are a professional HTML engineer. You have HTML code that may contain mixed text or errors.
+
+Your task: Rewrite this as a complete, clean, valid HTML document.
+
+STRICT RULES:
+1. Start with <!DOCTYPE html> immediately — NO text before it ever
+2. Keep ALL CSS, JavaScript, and original content intact
+3. Fix any broken or unclosed HTML tags
+4. Ensure proper <html>, <head>, <body> structure
+5. Remove any plain text that appears outside HTML tags
+6. Do NOT change the design or content — only clean the structure
+
+Input code:
+${extracted.slice(0, 25000)}
+
+Return ONLY the complete clean HTML — no explanation, no comments, no markdown — just the code directly without \`\`\`html`;
+
+  try {
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [{ role: "user", content: prompt }],
+        stream: true,
+        max_tokens: 16000,
+        temperature: 0.1, // low temperature for consistent clean output
+      }),
+    });
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let fullContent = "";
+
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value, { stream: true }).split("\n")) {
+          if (!line.startsWith("data: ") || line.includes("[DONE]")) continue;
+          try {
+            const parsed = JSON.parse(line.slice(6));
+            const text = parsed.choices?.[0]?.delta?.content || "";
+            if (text) {
+              fullContent += text;
+              res.write(`data: ${JSON.stringify({ type: "chunk", content: text })}\n\n`);
+            }
+          } catch {}
+        }
+      }
+    }
+
+    // Final validation — ensure output starts with <!DOCTYPE
+    const finalHtml = finalizeHtml(fullContent);
+    res.write(`data: ${JSON.stringify({ type: "final", html: finalHtml })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+    res.end();
+  } catch (e: any) {
+    res.write(`data: ${JSON.stringify({ type: "error", message: e.message })}\n\n`);
+    res.end();
+  }
+});
+
+// ── Helper: Extract the cleanest possible HTML from messy input ──────────────
+function extractCleanHtml(raw: string): string {
+  // Try to find <!DOCTYPE first
+  const doctypeIdx = raw.indexOf("<!DOCTYPE");
+  if (doctypeIdx >= 0) return raw.slice(doctypeIdx);
+
+  // Try <html tag
+  const htmlIdx = raw.indexOf("<html");
+  if (htmlIdx >= 0) return raw.slice(htmlIdx);
+
+  // Try <head tag
+  const headIdx = raw.indexOf("<head");
+  if (headIdx >= 0) return `<!DOCTYPE html>\n` + raw.slice(headIdx);
+
+  // Try <body tag
+  const bodyIdx = raw.indexOf("<body");
+  if (bodyIdx >= 0) return `<!DOCTYPE html>\n<html lang="ar">\n<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>\n` + raw.slice(bodyIdx);
+
+  // Last resort: return as-is
+  return raw;
+}
+
+// ── Helper: Final HTML validation ───────────────────────────────────────────
+function finalizeHtml(html: string): string {
+  // Remove any markdown code fences
+  let clean = html.replace(/^```html\s*/i, "").replace(/```\s*$/i, "").trim();
+
+  // Remove any text before <!DOCTYPE
+  const doctypeIdx = clean.indexOf("<!DOCTYPE");
+  if (doctypeIdx > 0) clean = clean.slice(doctypeIdx);
+
+  // If still no DOCTYPE, add it
+  if (!clean.startsWith("<!DOCTYPE") && !clean.startsWith("<html")) {
+    const htmlStart = clean.indexOf("<html");
+    if (htmlStart >= 0) clean = clean.slice(htmlStart);
+    else clean = `<!DOCTYPE html>\n${clean}`;
+  }
+
+  return clean;
+}

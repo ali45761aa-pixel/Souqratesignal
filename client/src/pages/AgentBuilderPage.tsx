@@ -868,6 +868,45 @@ export default function AgentBuilderPage() {
     }
     setActiveTab("preview");
     toast.success(lang === "ar" ? "🎉 المشروع مكتمل! يمكنك معاينته وتحميله" : "🎉 Project complete! You can preview and download it");
+
+    // ── HTML Reconstructor: final clean pass to ensure perfect HTML ──────────
+    const rawHtmlFiles = deduplicateFiles(allFiles).filter(f => f.language === "html");
+    if (rawHtmlFiles.length > 0) {
+      const rawHtml = rawHtmlFiles[rawHtmlFiles.length - 1].content;
+      // Only reconstruct if HTML looks messy (contains text outside tags)
+      const looksMessy = rawHtml.includes("div class=") || rawHtml.includes("section class=") ||
+        rawHtml.match(/^[^<]{10,}/m) || rawHtml.includes("```");
+      if (looksMessy) {
+        toast.info(lang === "ar" ? "🔧 جاري تنظيف الكود النهائي..." : "🔧 Final cleanup in progress...");
+        try {
+          const reconstructRes = await fetch("/api/qa/reconstruct", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ html: rawHtml, lang }),
+          });
+          const reconstructReader = reconstructRes.body?.getReader();
+          const reconstructDecoder = new TextDecoder();
+          if (reconstructReader) {
+            while (true) {
+              const { done, value } = await reconstructReader.read();
+              if (done) break;
+              for (const line of reconstructDecoder.decode(value, { stream: true }).split("\n")) {
+                if (!line.startsWith("data: ")) continue;
+                try {
+                  const parsed = JSON.parse(line.slice(6));
+                  if (parsed.type === "final" && parsed.html) {
+                    setLiveHtmlFile(parsed.html);
+                    toast.success(lang === "ar" ? "✅ تم تنظيف الكود بنجاح!" : "✅ Code cleaned successfully!");
+                  }
+                } catch {}
+              }
+            }
+          }
+        } catch {
+          // Reconstruction failed silently — keep original HTML
+        }
+      }
+    }
   }, [plan, prompt, lang, isExecuting]);
 
   // ── Execute single step manually ─────────────────────────────────────────────
