@@ -197,6 +197,13 @@ export const AGENTS = {
     descEn: "Generates unconventional creative ideas and innovative features to differentiate the project",
     color: "orange",
   },
+  fixer: {
+    id: "fixer", icon: "🔧",
+    nameAr: "وكيل إصلاح الأخطاء", nameEn: "Error Fixer Agent",
+    descAr: "يكتشف ويصلح جميع الأخطاء تلقائياً: JS errors, CSS bugs, broken links, missing images, responsive issues",
+    descEn: "Detects and fixes all errors automatically: JS errors, CSS bugs, broken links, missing images, responsive issues",
+    color: "emerald",
+  },
 };
 
 // ── Plan Generator ────────────────────────────────────────────────────────────
@@ -307,6 +314,14 @@ function generatePlan(prompt: string, lang: string): {
       descAr: "تحسين سرعة التحميل وضغط الصور وتقليل حجم الكود",
       descEn: "Improving load speed, compressing images and reducing code size",
       estimatedTime: "5s",
+    },
+    {
+      id: "step-fix", agentId: "fixer",
+      titleAr: "إصلاح جميع الأخطاء",
+      titleEn: "Fix All Errors",
+      descAr: "فحص شامل وإصلاح تلقائي لكل الأخطاء: JS, CSS, responsive, accessibility, broken links",
+      descEn: "Comprehensive scan and auto-fix of all errors: JS, CSS, responsive, accessibility, broken links",
+      estimatedTime: "15s",
     },
     {
       id: "step-8", agentId: "docs",
@@ -2026,6 +2041,57 @@ Single points of failure وكيف نتجنبها${ctx}`
       : `You are an innovation and creative thinking expert. Think outside the box: one "WOW" feature, 5 differentiating ideas (with description, why innovative, technical implementation, user impact), 3 unconventional AI applications, gamification strategy, viral loop mechanism, innovative business model, and 5-year vision.${ctx}`,
   };
 
+  // Add fixer agent prompt
+  prompts.fixer = ar
+    ? `أنت وكيل إصلاح أخطاء متخصص بمستوى عالمي. مهمتك فحص الكود بالكامل وإصلاح كل خطأ تجده.
+
+أنواع الأخطاء التي تبحث عنها وتصلحها:
+═══════════════════════════════════════════════════
+1. JavaScript Errors: undefined variables, missing functions, syntax errors, type errors
+2. CSS Bugs: broken layouts, overflow issues, z-index conflicts, missing responsive styles
+3. HTML Issues: unclosed tags, invalid nesting, missing alt text, broken links
+4. Responsive Issues: elements overflowing on mobile, text too small, buttons too close
+5. Performance Issues: unoptimized images, render-blocking scripts, excessive DOM nodes
+6. Accessibility Issues: missing aria-labels, poor contrast, no focus styles
+7. Browser Compatibility: features not supported in Safari/Firefox
+8. Logic Errors: broken navigation, forms that don't submit, broken Alpine.js bindings
+═══════════════════════════════════════════════════
+
+قواعد الإصلاح:
+1. أرجع الكود الكامل المُصلَح — لا تحذف أي ميزة
+2. أضف تعليقات // FIXED: ... عند كل إصلاح
+3. إذا وجدت صورة مكسورة، استبدلها بصورة Unsplash مناسبة
+4. إذا وجدت responsive مكسور، أصلحه بـ media queries صحيحة
+5. إذا وجدت Alpine.js binding مكسور، أصلحه
+6. تأكد أن الموقع يعمل 100% بدون أي خطأ في Console
+${ctx}
+
+أرجع الكود المُصلَح كاملاً في code block بصيغة html`
+    : `You are a world-class Error Fixer agent. Your mission is to scan the entire code and fix every error you find.
+
+Error types you detect and fix:
+═══════════════════════════════════════════════════
+1. JavaScript Errors: undefined variables, missing functions, syntax errors, type errors
+2. CSS Bugs: broken layouts, overflow issues, z-index conflicts, missing responsive styles
+3. HTML Issues: unclosed tags, invalid nesting, missing alt text, broken links
+4. Responsive Issues: elements overflowing on mobile, text too small, buttons too close
+5. Performance Issues: unoptimized images, render-blocking scripts, excessive DOM nodes
+6. Accessibility Issues: missing aria-labels, poor contrast, no focus styles
+7. Browser Compatibility: features not supported in Safari/Firefox
+8. Logic Errors: broken navigation, forms that don't submit, broken Alpine.js bindings
+═══════════════════════════════════════════════════
+
+Fix rules:
+1. Return the COMPLETE fixed code — do NOT remove any feature
+2. Add comments // FIXED: ... at each fix
+3. If you find a broken image, replace with appropriate Unsplash image
+4. If you find broken responsive, fix with proper media queries
+5. If you find broken Alpine.js binding, fix it
+6. Ensure the website works 100% with ZERO console errors
+${ctx}
+
+Return the complete fixed code in a code block (html format)`;
+
   return prompts[agentId] || prompts.frontend;
 }
 
@@ -2098,7 +2164,7 @@ function extractFiles(content: string, agentId: string): { name: string; content
   // If we found blocks, prioritize HTML for frontend agents
   if (namedBlocks.length > 0) {
     // For frontend/reviewer/auditor/game agents, always prefer HTML file
-    const htmlAgents = ["frontend", "reviewer", "auditor", "game", "seo", "mobile", "optimizer", "tester", "payment"];
+    const htmlAgents = ["frontend", "reviewer", "auditor", "fixer", "game", "seo", "mobile", "optimizer", "tester", "payment"];
     if (htmlAgents.includes(agentId)) {
       const htmlBlock = namedBlocks.find(b => b.language === "html");
       if (htmlBlock) return [htmlBlock]; // Return only the HTML for preview

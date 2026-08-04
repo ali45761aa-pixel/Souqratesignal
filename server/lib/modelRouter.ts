@@ -4,7 +4,7 @@
 // - DeepSeek: all other agents (analysis, content, SEO, backend, etc.)
 
 const CLAUDE_AGENTS = new Set([
-  "frontend", "reviewer", "auditor", "brand", "innovation", "strategy", "designer", "ux"
+  "frontend", "reviewer", "auditor", "fixer", "brand", "innovation", "strategy", "designer", "ux"
 ]);
 
 const CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
