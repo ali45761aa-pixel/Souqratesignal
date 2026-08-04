@@ -14,7 +14,7 @@ import {
   TestTube, BookOpen, Rocket, Settings, MessageCircle
   , Target, Layers, Lightbulb, GitBranch, Microscope
 } from "lucide-react";
-import { ExternalLink, Github, Upload, Server, Maximize2, Minimize2, Terminal, History, RotateCcw, DollarSign, Wifi, WifiOff, Wrench, Code2 as ReactIcon, FileCode, Zap as BotIcon, Layout, Columns2 } from "lucide-react";
+import { ExternalLink, Github, Upload, Server, Maximize2, Minimize2, Terminal, History, RotateCcw, DollarSign, Wifi, WifiOff, Wrench, Code2 as ReactIcon, FileCode, Zap as BotIcon, Layout, Columns2, Share2 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface PlanStep {
@@ -1085,7 +1085,7 @@ export default function AgentBuilderPage() {
               { id: "plan", icon: <Zap className="w-3.5 h-3.5" />, labelAr: "خطة العمل", labelEn: "Work Plan" },
               { id: "preview", icon: <Eye className="w-3.5 h-3.5" />, labelAr: "المعاينة", labelEn: "Preview", disabled: !htmlFile },
               { id: "files", icon: <FolderOpen className="w-3.5 h-3.5" />, labelAr: "الملفات", labelEn: "Files", disabled: allFiles.length === 0 },
-              { id: "chat", icon: <MessageCircle className="w-3.5 h-3.5" />, labelAr: "اسأل عن المشروع", labelEn: "Ask Project", disabled: !projectMemory },
+              { id: "chat", icon: <MessageCircle className="w-3.5 h-3.5" />, labelAr: "اسأل عن المشروع", labelEn: "Ask Project", disabled: false },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1144,18 +1144,33 @@ export default function AgentBuilderPage() {
                <span className="text-xs text-muted-foreground/50 px-1 hidden lg:block">{(totalTokens/1000).toFixed(1)}k</span>
              )}
               {htmlFile && (
+               <button
+                 onClick={() => setIsSplitView(v => !v)}
+                  title={lang === "ar" ? "عرض مقسوم (كود + معاينة)" : "Split View (code + preview)"}
+                 className={cn(
+                   "flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg border transition-colors",
+                   isSplitView
+                     ? "bg-primary/10 border-primary/30 text-primary"
+                     : "bg-card border-border text-muted-foreground hover:text-foreground"
+                 )}
+               >
+                 <Columns2 className="w-3 h-3" />
+                 <span className="hidden sm:inline">{lang === "ar" ? "مقسوم" : "Split"}</span>
+               </button>
+             )}
+              {htmlFile && (
                 <button
-                  onClick={() => setIsSplitView(v => !v)}
-                  title={lang === "ar" ? "عرض مقسوم" : "Split View"}
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg border transition-colors",
-                    isSplitView
-                      ? "bg-primary/10 border-primary/30 text-primary"
-                      : "bg-card border-border text-muted-foreground hover:text-foreground"
-                  )}
+                  onClick={() => {
+                    const url = `${window.location.origin}/preview-share?html=${encodeURIComponent(btoa(unescape(encodeURIComponent(htmlFile.content.slice(0, 50000)))))}`;
+                    setShareUrl(url);
+                    navigator.clipboard.writeText(url).then(() => { setIsCopiedShare(true); setTimeout(() => setIsCopiedShare(false), 2000); });
+                    toast.success(lang === "ar" ? "تم نسخ رابط المشاركة!" : "Share link copied!");
+                  }}
+                  title={lang === "ar" ? "مشاركة المعاينة" : "Share Preview"}
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs bg-card border border-border text-muted-foreground hover:text-foreground rounded-lg transition-colors"
                 >
-                  <Columns2 className="w-3 h-3" />
-                  <span className="hidden sm:inline">{lang === "ar" ? "مقسوم" : "Split"}</span>
+                  {isCopiedShare ? <Check className="w-3 h-3 text-green-400" /> : <Share2 className="w-3 h-3" />}
+                  <span className="hidden sm:inline">{isCopiedShare ? (lang === "ar" ? "تم!" : "Copied!") : (lang === "ar" ? "مشاركة" : "Share")}</span>
                 </button>
               )}
               {projectMemory && (
@@ -1678,18 +1693,61 @@ export default function AgentBuilderPage() {
             <div className="w-44 shrink-0 border-e border-border bg-card/20 overflow-y-auto">
               <div className="p-2 space-y-1">
                 {allFiles.map((f, i) => (
-                  <button key={i} onClick={() => setSelectedFile(i)} className={cn("w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-start transition-all", selectedFile === i ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-muted")}>
+                  <button key={i} onClick={() => { setSelectedFile(i); setIsEditingFile(false); setEditedFileContent(allFiles[i]?.content || ""); }} className={cn("w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-start transition-all", selectedFile === i ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-muted")}>
                     <FileCode2 className="w-3.5 h-3.5 shrink-0" />
                     <span className="truncate">{f.name}</span>
                   </button>
                 ))}
               </div>
             </div>
-            <div className="flex-1 overflow-auto bg-gray-950">
-              {allFiles[selectedFile] && (
-                <pre className="p-4 text-xs font-mono text-green-300 whitespace-pre-wrap leading-relaxed">
-                  {allFiles[selectedFile].content}
-                </pre>
+            <div className="flex-1 flex flex-col overflow-hidden bg-gray-950">
+              {allFiles[selectedFile] ? (
+                <>
+                  <div className="shrink-0 flex items-center justify-between px-3 py-2 border-b border-white/10 bg-gray-900">
+                    <span className="text-xs text-green-400 font-mono">{allFiles[selectedFile].name}</span>
+                    <div className="flex items-center gap-2">
+                      {isEditingFile ? (
+                        <>
+                          <button onClick={() => {
+                            const updated = allFiles.map((f, i) => i === selectedFile ? { ...f, content: editedFileContent } : f);
+                            setProjectMemory(prev => prev ? { ...prev, allFiles: updated } : prev);
+                            if (allFiles[selectedFile].language === "html") setLiveHtmlFile(editedFileContent);
+                            setIsEditingFile(false);
+                            toast.success(lang === "ar" ? "تم حفظ التعديلات" : "Changes saved");
+                          }} className="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors">
+                            {lang === "ar" ? "💾 حفظ" : "💾 Save"}
+                          </button>
+                          <button onClick={() => setIsEditingFile(false)} className="text-xs px-2 py-1 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors">
+                            {lang === "ar" ? "إلغاء" : "Cancel"}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => { setIsEditingFile(true); setEditedFileContent(allFiles[selectedFile].content); }}
+                            className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
+                            ✏️ {lang === "ar" ? "تعديل" : "Edit"}
+                          </button>
+                          <button onClick={() => { navigator.clipboard.writeText(allFiles[selectedFile].content); toast.success(lang === "ar" ? "تم النسخ" : "Copied"); }}
+                            className="text-xs px-2 py-1 bg-white/5 text-muted-foreground rounded-lg hover:text-foreground transition-colors">
+                            📋 {lang === "ar" ? "نسخ" : "Copy"}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {isEditingFile ? (
+                    <textarea value={editedFileContent} onChange={e => setEditedFileContent(e.target.value)}
+                      className="flex-1 p-4 text-xs font-mono text-green-300 bg-gray-950 resize-none outline-none leading-relaxed" spellCheck={false} />
+                  ) : (
+                    <pre className="flex-1 overflow-auto p-4 text-xs font-mono text-green-300 whitespace-pre-wrap leading-relaxed">
+                      {allFiles[selectedFile].content}
+                    </pre>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground/30 text-sm">
+                  {lang === "ar" ? "اختر ملفاً من القائمة" : "Select a file from the list"}
+                </div>
               )}
             </div>
           </div>
@@ -1808,11 +1866,11 @@ export default function AgentBuilderPage() {
           <div className="h-full flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
               {qaMessages.length === 0 && (
-                <div className="text-center py-8">
-                  <MessageCircle className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground/60">
-                    {lang === "ar" ? "اسأل أي شيء عن مشروعك..." : "Ask anything about your project..."}
-                  </p>
+               <div className="text-center py-8">
+                 <MessageCircle className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
+                 <p className="text-sm text-muted-foreground/60">
+                    {lang === "ar" ? (isExecuting ? "🔨 الوكلاء يعملون الآن — يمكنك السؤال أثناء البناء!" : "اسأل أي شيء عن مشروعك...") : (isExecuting ? "🔨 Agents are working — you can ask questions during build!" : "Ask anything about your project...")}
+                 </p>
                   <div className="mt-4 flex flex-wrap gap-2 justify-center">
                     {(lang === "ar" ? [
                       "ما الألوان المستخدمة؟",
@@ -1877,3 +1935,8 @@ function deduplicateFiles(files: { name: string; content: string; language: stri
     return true;
   });
 }
+  const [showLiveChat, setShowLiveChat] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [isCopiedShare, setIsCopiedShare] = useState(false);
+  const [isEditingFile, setIsEditingFile] = useState(false);
+  const [editedFileContent, setEditedFileContent] = useState("");

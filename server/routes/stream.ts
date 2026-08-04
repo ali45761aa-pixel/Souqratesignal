@@ -6,26 +6,30 @@ const streamRouter = Router();
 function getSystemPrompt(type: string, lang: string): string {
   const isAr = lang === "ar";
   const base = isAr
-    ? `أنت خبير متكامل في بناء المشاريع الرقمية الاحترافية.
-مهمتك بناء مشاريع كاملة وقابلة للتشغيل فوراً.
-القواعد:
-- أرجع الكود الكامل فقط بدون شرح خارجه
-- استخدم Tailwind CSS من CDN
-- اجعل التصميم احترافياً وجميلاً ومتجاوباً مع الهاتف
-- أضف محتوى عربياً حقيقياً ومناسباً
-- استخدم Alpine.js للتفاعل عند الحاجة
-- أضف animations و micro-interactions
-- اجعل الكود نظيفاً ومنظماً`
-    : `You are a full-stack expert building professional digital projects.
-Your task is to build complete, immediately runnable projects.
-Rules:
-- Return complete code only, no external explanations
-- Use Tailwind CSS from CDN
-- Make design professional, beautiful and mobile responsive
-- Add real and appropriate content
-- Use Alpine.js for interactivity when needed
-- Add animations and micro-interactions
-- Keep code clean and organized`;
+    ? `أنت مطور Frontend بمستوى Awwwards. مهمتك بناء موقع احترافي مذهل يُباع بآلاف الدولارات.
+
+قواعد إلزامية:
+1. ابدأ بـ <!DOCTYPE html><html lang="ar" dir="rtl"> مع meta charset وviewport وtitle حقيقي
+2. استخدم Google Fonts (Cairo أو Tajawal) من CDN
+3. اكتب CSS مخصصاً احترافياً مع متغيرات CSS
+4. الأقسام الإلزامية: NAV sticky + HERO + STATS + FEATURES + HOW IT WORKS + TESTIMONIALS + PRICING + CTA + FOOTER
+5. JavaScript إلزامي: Scroll Reveal + Counter Animation + Mobile Menu + Smooth Scroll
+6. محتوى عربي حقيقي مناسب للمشروع — لا Lorem ipsum أبداً
+7. استخدم rgba(var(--primary-rgb), 0.1) للشفافية
+8. أضف class="reveal" لكل section رئيسي
+⚠️ أرجع HTML الكامل فقط داخل \`\`\`html ... \`\`\` — أول حرف في ردك يجب أن يكون \`\`\`html`
+    : `You are a world-class Frontend developer at Awwwards level. Build a stunning professional website.
+
+MANDATORY RULES:
+1. Start with <!DOCTYPE html><html lang="en"> with real meta charset, viewport, title
+2. Use Google Fonts (Inter or Poppins) from CDN
+3. Write custom professional CSS with CSS variables
+4. MANDATORY SECTIONS: sticky NAV + HERO + STATS + FEATURES + HOW IT WORKS + TESTIMONIALS + PRICING + CTA + FOOTER
+5. MANDATORY JS: Scroll Reveal + Counter Animation + Mobile Menu + Smooth Scroll
+6. Real relevant content — NO Lorem ipsum EVER
+7. Use rgba(var(--primary-rgb), 0.1) for transparency
+8. Add class="reveal" to every major section
+⚠️ Return ONLY complete HTML inside \`\`\`html ... \`\`\` — first character MUST be \`\`\`html`;
 
   const extras: Record<string, string> = {
     fullstack: isAr
@@ -204,7 +208,7 @@ streamRouter.post("/stream-build", async (req: Request, res: Response) => {
       body: JSON.stringify({
         model: "deepseek-chat",
         messages,
-        max_tokens: 8000,
+        max_tokens: 16000,
         temperature: 0.7,
         stream: true,
       }),
@@ -250,11 +254,25 @@ streamRouter.post("/stream-build", async (req: Request, res: Response) => {
       }
     }
 
-    // Clean code and detect files
-    const cleanCode = fullContent
-      .replace(/^```[\w]*\n?/gm, "")
-      .replace(/^```\n?/gm, "")
-      .trim();
+    // Clean HTML output — extract only the HTML part
+    let cleanCode = fullContent;
+    const htmlBlock = fullContent.match(/```html\s*([\s\S]*?)```/i);
+    if (htmlBlock) {
+      cleanCode = htmlBlock[1].trim();
+    } else {
+      const anyBlock = fullContent.match(/```\w*\s*(<!DOCTYPE[\s\S]*?)```/i);
+      if (anyBlock) {
+        cleanCode = anyBlock[1].trim();
+      } else {
+        const doctypeIdx = fullContent.indexOf("<!DOCTYPE");
+        if (doctypeIdx >= 0) {
+          const closeHtml = fullContent.lastIndexOf("</html>");
+          cleanCode = closeHtml > doctypeIdx ? fullContent.slice(doctypeIdx, closeHtml + 7) : fullContent.slice(doctypeIdx);
+        } else {
+          cleanCode = fullContent.replace(/^```[\w]*\n?/gm, "").replace(/^```\n?/gm, "").trim();
+        }
+      }
+    }
 
     // Parse multi-file output
     const files = parseFiles(cleanCode, type);
