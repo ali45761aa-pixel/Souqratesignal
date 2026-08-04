@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useLang } from "@/contexts/LangContext";
 import { t } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
@@ -16,12 +19,24 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
+const clientSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  phone: z.string().optional(),
+  company: z.string().optional(),
+  country: z.string().optional(),
+});
+type ClientFormData = z.infer<typeof clientSchema>;
+
 function NewClientDialog({ onCreated }: { onCreated: () => void }) {
   const { lang } = useLang();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", company: "", country: "" });
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ClientFormData>({
+    resolver: zodResolver(clientSchema),
+    defaultValues: { name: "", email: "", phone: "", company: "", country: "" },
+  });
   const create = trpc.crm.createClient.useMutation({
-    onSuccess: () => { toast.success(lang === "ar" ? "تم إضافة العميل" : "Client added"); setOpen(false); onCreated(); },
+    onSuccess: () => { toast.success(lang === "ar" ? "تم إضافة العميل" : "Client added"); setOpen(false); reset(); onCreated(); },
     onError: e => toast.error(e.message),
   });
   return (
@@ -36,31 +51,33 @@ function NewClientDialog({ onCreated }: { onCreated: () => void }) {
         <DialogHeader>
           <DialogTitle>{lang === "ar" ? "إضافة عميل جديد" : "Add New Client"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          {[
-            { key: "name", label: lang === "ar" ? "الاسم *" : "Name *", required: true },
-            { key: "email", label: "Email", required: false },
-            { key: "phone", label: lang === "ar" ? "الهاتف" : "Phone", required: false },
-            { key: "company", label: lang === "ar" ? "الشركة" : "Company", required: false },
-            { key: "country", label: lang === "ar" ? "الدولة" : "Country", required: false },
-          ].map(field => (
-            <div key={field.key} className="space-y-1">
-              <Label className="text-xs">{field.label}</Label>
-              <Input
-                value={form[field.key as keyof typeof form]}
-                onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
-                className="bg-background"
-              />
+          <form onSubmit={handleSubmit(data => create.mutate(data))} className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">{lang === "ar" ? "الاسم *" : "Name *"}</Label>
+              <Input {...register("name")} className="bg-background" />
+              {errors.name && <p className="text-xs text-red-400">{errors.name.message}</p>}
             </div>
-          ))}
-          <Button
-            onClick={() => create.mutate(form)}
-            disabled={!form.name || create.isPending}
-            className="w-full gradient-primary text-white"
-          >
-            {lang === "ar" ? "إضافة" : "Add"}
-          </Button>
-        </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Email</Label>
+              <Input {...register("email")} type="email" className="bg-background" />
+              {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">{lang === "ar" ? "الهاتف" : "Phone"}</Label>
+              <Input {...register("phone")} className="bg-background" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">{lang === "ar" ? "الشركة" : "Company"}</Label>
+              <Input {...register("company")} className="bg-background" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">{lang === "ar" ? "الدولة" : "Country"}</Label>
+              <Input {...register("country")} className="bg-background" />
+            </div>
+            <Button type="submit" disabled={isSubmitting || create.isPending} className="w-full gradient-primary text-white">
+              {lang === "ar" ? "إضافة" : "Add"}
+            </Button>
+          </form>
       </DialogContent>
     </Dialog>
   );

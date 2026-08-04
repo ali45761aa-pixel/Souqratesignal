@@ -2,6 +2,7 @@ import { startWalletMonitorCron } from "../cron/walletMonitor";
 import { startReportCron } from "../cron/reportGenerator";
 import express from "express";
 import { createServer } from "http";
+import helmet from "helmet";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
@@ -38,6 +39,12 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+  // Security headers
+  app.use(helmet({
+    contentSecurityPolicy: false, // disabled to allow inline scripts in dev
+    crossOriginEmbedderPolicy: false, // allow iframes
+  }));
 
   // Health check endpoint
   app.get("/api/health", (req, res) => {

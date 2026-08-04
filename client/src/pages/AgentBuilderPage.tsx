@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useMemo } from "react";
 import { useLang } from "@/contexts/LangContext";
 import { cn } from "@/lib/utils";
+import DOMPurify from "dompurify";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import {
@@ -486,6 +487,13 @@ export default function AgentBuilderPage() {
   };
 
   const injectConsoleInterceptor = (html: string): string => {
+    // Sanitize HTML to prevent XSS while keeping scripts for preview
+    const sanitized = DOMPurify.sanitize(html, {
+      WHOLE_DOCUMENT: true,
+      ADD_TAGS: ["script", "style", "link", "meta", "head", "body", "html"],
+      ADD_ATTR: ["src", "href", "type", "rel", "charset", "name", "content", "defer", "async", "crossorigin", "integrity", "data-target", "data-suffix", "data-aos", "data-aos-delay", "x-data", "x-show", "@click", "@submit"],
+    });
+    const safeHtml = sanitized || html; // fallback to original if sanitizer removes everything
     // Clean HTML before injecting
     html = cleanHtmlContent(html);
     const interceptor = `<script>
