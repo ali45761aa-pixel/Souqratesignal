@@ -668,7 +668,11 @@ export default function AgentBuilderPage() {
                 allFiles.push(...stepFiles);
                 allFilesRef.current = [...allFilesRef.current, ...stepFiles];
                 // Update live preview if HTML file found
-                const htmlStep = stepFiles.find((f: any) => f.language === "html");
+                // Only set as HTML preview if content actually contains HTML markup
+                const htmlStep = stepFiles.find((f: any) =>
+                  f.language === "html" &&
+                  (f.content.includes("<!DOCTYPE") || f.content.includes("<html") || f.content.includes("<body"))
+                );
                 if (htmlStep) { setLiveHtmlFile(htmlStep.content); setActiveTab("preview"); }
                 projectContext += `\n\n=== ${step.agentId} output ===\n${stepContent.slice(0, 1000)}`;
                 setPlan(prev => prev.map((s, j) => j === i ? {
@@ -835,7 +839,11 @@ export default function AgentBuilderPage() {
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const allFiles = projectMemory?.allFiles || [];
   // Prefer the latest HTML file: from projectMemory, then liveHtmlFile as fallback
-  const htmlFiles = allFiles.filter(f => f.language === "html");
+  // Only include files that actually contain HTML markup (not server.js misclassified as html)
+  const htmlFiles = allFiles.filter(f =>
+    f.language === "html" &&
+    (f.content.includes("<!DOCTYPE") || f.content.includes("<html") || f.content.includes("<body"))
+  );
   const htmlFileContent = htmlFiles.length > 0
     ? htmlFiles[htmlFiles.length - 1].content  // latest from completed project (best quality)
     : liveHtmlFile ?? undefined;                // fallback: live preview or last seen HTML
@@ -1373,7 +1381,11 @@ export default function AgentBuilderPage() {
                 ))}
               </div>
               {!htmlFile && isExecuting && <span className="text-xs text-primary/70 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />{lang === "ar" ? "جاري البناء..." : "Building..."}</span>}
-              {!htmlFile && !isExecuting && plan.length > 0 && <span className="text-xs text-muted-foreground">{lang === "ar" ? "لا يوجد ملف HTML بعد" : "No HTML file yet"}</span>}
+              {!htmlFile && !isExecuting && plan.length > 0 && (
+                <span className="text-xs text-amber-500 flex items-center gap-1">
+                  ⚠️ {lang === "ar" ? "المشروع يحتوي على ملفات غير HTML (مثل server.js) — اضغط على تبويب الملفات لعرضها" : "Project has non-HTML files (e.g. server.js) — check Files tab to view them"}
+                </span>
+              )}
               {/* Output Format Menu */}
               <div className="relative ms-auto">
                 <button
@@ -1421,7 +1433,7 @@ export default function AgentBuilderPage() {
               )}
             </div>
             <div className="flex-1 overflow-auto bg-muted/20 flex items-start justify-center p-4">
-              {htmlFile ? (
+                {htmlFile ? (
                <div className="bg-white rounded-xl shadow-2xl overflow-hidden transition-all duration-300"
                  style={{ width: device === "desktop" ? "100%" : device === "tablet" ? "768px" : "390px", maxWidth: "100%", minHeight: "500px" }}>
                  <iframe ref={iframeRef} srcDoc={injectConsoleInterceptor(htmlFile.content)} className="w-full border-0" style={{ height: "600px" }} sandbox="allow-scripts allow-same-origin allow-forms" title="Preview" />

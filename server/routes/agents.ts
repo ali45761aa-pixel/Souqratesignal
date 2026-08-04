@@ -1066,18 +1066,20 @@ MANDATORY JAVASCRIPT at end of body:
 
 Return ONLY the complete HTML code inside \`\`\`html ... \`\`\` — no explanation outside${ctx}`,
     backend: ar
-      ? `أنت مطور Backend خبير. اكتب كود Node.js + Express كاملاً:
+     ? `أنت مطور Backend خبير. اكتب كود Node.js + Express كاملاً:
 - RESTful API endpoints
 - Middleware (cors, helmet, morgan)
 - Error handling
 - Environment variables
-- اكتب الكود في ملف server.js مع تعليقات واضحة${ctx}`
+      - اكتب الكود في ملف server.js مع تعليقات واضحة
+أرجع الكود داخل \`\`\`javascript ... \`\`\` فقط — لا تكتب HTML أبداً${ctx}`
       : `You are an expert Backend developer. Write complete Node.js + Express code:
 - RESTful API endpoints
 - Middleware (cors, helmet, morgan)
 - Error handling
 - Environment variables
-- Write code in server.js with clear comments${ctx}`,
+      - Write code in server.js with clear comments
+Return code inside \`\`\`javascript ... \`\`\` only — NEVER write HTML${ctx}`,
 
     database: ar
       ? `أنت خبير قواعد بيانات. صمّم:
@@ -1756,11 +1758,26 @@ function extractFiles(content: string, agentId: string): { name: string; content
   };
 
   // If content contains HTML tags, treat as HTML
-  if (content.includes("<!DOCTYPE") || content.includes("<html") || content.includes("<body")) {
-    const htmlStart = content.indexOf("<!DOCTYPE") >= 0 ? content.indexOf("<!DOCTYPE") : content.indexOf("<html");
+  // Only treat as HTML if it starts with DOCTYPE or <html (not just mentions them in comments)
+  // This prevents server.js with HTML comments from being misclassified
+  const trimmedContent = content.trimStart();
+  const isRealHtml = trimmedContent.startsWith("<!DOCTYPE") ||
+    trimmedContent.startsWith("<html") ||
+    /^[\s\S]{0,200}<!DOCTYPE\s+html/i.test(trimmedContent);
+  if (isRealHtml) {
+    const htmlStart = trimmedContent.indexOf("<!DOCTYPE") >= 0
+      ? content.indexOf("<!DOCTYPE")
+      : content.indexOf("<html");
     if (htmlStart >= 0) {
       return [{ name: "index.html", content: content.slice(htmlStart), language: "html" }];
     }
+  }
+  // Secondary check: if content has full HTML structure (not just mentions)
+  const hasFullHtmlStructure = content.includes("<head>") && content.includes("</head>") &&
+    content.includes("<body") && content.includes("</body>");
+  if (hasFullHtmlStructure) {
+    const htmlStart = content.indexOf("<html") >= 0 ? content.indexOf("<html") : 0;
+    return [{ name: "index.html", content: content.slice(htmlStart), language: "html" }];
   }
 
   const fileInfo = extMap[agentId];
