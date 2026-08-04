@@ -1109,7 +1109,9 @@ async function buildAgentPrompt(agentId: string, prompt: string, lang: string, c
 5. Ready-to-use CSS Variables examples${ctx}`,
 
     frontend: ar
-      ? `أنت مطور Frontend بمستوى Awwwards. مهمتك بناء موقع احترافي مذهل يُباع بآلاف الدولارات.
+      ? `أنت مطور Frontend بمستوى Awwwards. مهمتك بناء موقع احترافي متعدد الصفحات مذهل يُباع بآلاف الدولارات.
+
+⚠️ قاعدة ذهبية: ابنِ موقعاً متعدد الصفحات حقيقياً بـ SPA Router — ليس صفحة واحدة طويلة!
 
 ${designInstructions}
 
@@ -1126,16 +1128,42 @@ ${designInstructions}
 \`\`\`
 ثم أضف CSS مخصص للمشروع بعده.
 
-الأقسام الإلزامية بالترتيب:
-1. NAV: sticky مع backdrop-filter، logo + روابط + زر CTA + hamburger للموبايل
-2. HERO: hero-badge مع نقطة نابضة + h1 ضخم مع gradient-text + subtitle + زرين + صورة hero-image
-3. STATS: 4 أرقام مع class="stat-number" وdata-target="[رقم]" للـ counter animation
-4. FEATURES: 6 بطاقات card مع feature-icon وعنوان feature-title ووصف feature-desc
-5. HOW IT WORKS: 3 خطوات مرقمة بتصميم مميز
-6. TESTIMONIALS: 3 آراء عملاء مع testimonial-card وstars وtestimonial-author
-7. PRICING: 3 خطط (مجاني/احترافي/مؤسسي) مع pricing-card والخطة الوسطى featured
-8. CTA: قسم دعوة للعمل بخلفية gradient مع زر كبير
-9. FOOTER: footer-grid بـ 4 أعمدة + social-links + footer-bottom
+هيكل الموقع متعدد الصفحات (SPA Router):
+استخدم Alpine.js لبناء SPA Router حقيقي:
+
+\`\`\`html
+<div x-data="{ page: 'home' }">
+  <!-- NAV مع روابط التنقل -->
+  <nav>
+    <a @click="page='home'">الرئيسية</a>
+    <a @click="page='about'">من نحن</a>
+    <a @click="page='services'">خدماتنا</a>
+    <a @click="page='portfolio'">أعمالنا</a>
+    <a @click="page='contact'">تواصل</a>
+  </nav>
+  
+  <!-- صفحة الرئيسية -->
+  <div x-show="page === 'home'" x-transition>
+    [محتوى الصفحة الرئيسية الكامل]
+  </div>
+  
+  <!-- صفحة من نحن -->
+  <div x-show="page === 'about'" x-transition>
+    [محتوى صفحة من نحن الكامل]
+  </div>
+  
+  <!-- باقي الصفحات... -->
+</div>
+\`\`\`
+
+الصفحات الإلزامية بالترتيب:
+1. NAV: sticky مع backdrop-filter، logo + روابط التنقل بين الصفحات + زر CTA + hamburger للموبايل
+2. الصفحة الرئيسية (home): HERO + STATS + FEATURES + HOW IT WORKS + TESTIMONIALS + PRICING + CTA
+3. صفحة من نحن (about): قصة الشركة + الفريق + القيم + الإنجازات
+4. صفحة الخدمات (services): تفاصيل كل خدمة مع صور وأسعار
+5. صفحة الأعمال (portfolio): معرض مشاريع مع تصفية حسب الفئة
+6. صفحة التواصل (contact): نموذج + خريطة + معلومات التواصل
+7. FOOTER: footer-grid بـ 4 أعمدة + social-links + footer-bottom
 
 قواعد المحتوى الإلزامية:
 - اكتب محتوى عربياً حقيقياً ومناسباً للمشروع — لا Lorem ipsum ولا placeholder أبداً
@@ -1170,7 +1198,9 @@ JavaScript الإلزامي في نهاية الـ body:
 4. إذا كان الموقع طويلاً، اختصر المحتوى لكن أكمل البنية الكاملة
 5. أكمل جميع الأقسام حتى لو كانت مختصرة — لا تترك أي tag مفتوح
 6. الـ JavaScript يجب أن يكون داخل </body> مباشرة قبل </html>${ctx}`
-      : `You are a world-class Frontend developer at Awwwards level. Build a stunning professional website worth thousands of dollars.
+      : `You are a world-class Frontend developer at Awwwards level. Build a stunning MULTI-PAGE professional website worth thousands of dollars.
+
+⚠️ GOLDEN RULE: Build a REAL multi-page website with SPA Router — NOT a single long scrolling page!
 
 ${designInstructions}
 
@@ -1207,17 +1237,42 @@ REQUIRED HTML STRUCTURE:
 - Google Fonts <link> for chosen font
 - CDN libraries above
 
-MANDATORY SECTIONS IN ORDER:
-1. NAV: sticky with backdrop-filter:blur(24px), logo + links + CTA button + hamburger (x-data Alpine)
-2. HERO: section-label + large h1 with gradient-text + subtitle + 2 buttons + hero-image with data-aos="fade-up"
-3. STATS: 4 numbers with class="stat-number" data-target="[number]" data-suffix="+" for counter animation
-4. FEATURES: 6 cards with feature-icon (Lucide), feature-title, feature-desc — data-aos="fade-up" data-aos-delay="[0/100/200]"
-5. HOW IT WORKS: 3 numbered steps with step-number, step-title, step-desc — connected by visual line
-6. TESTIMONIALS: 3 cards with avatar (Unsplash), name, role, stars (★★★★★), quote
-7. PRICING: 3 plans with pricing-card, middle has class="featured" + "Most Popular" badge
-8. FAQ: 5 questions with Alpine.js accordion (x-data, x-show, @click)
-9. CTA: gradient background section with large headline + button
-10. FOOTER: 4-column grid + social icons (Lucide) + newsletter form + footer-bottom with copyright
+MULTI-PAGE SPA STRUCTURE (Alpine.js Router):
+Build a REAL multi-page website — not a single scrolling page!
+
+\`\`\`html
+<div x-data="{ page: 'home' }">
+  <!-- NAV with page navigation links -->
+  <nav>
+    <a @click="page='home'">Home</a>
+    <a @click="page='about'">About</a>
+    <a @click="page='services'">Services</a>
+    <a @click="page='portfolio'">Portfolio</a>
+    <a @click="page='contact'">Contact</a>
+  </nav>
+  
+  <!-- Home Page -->
+  <div x-show="page === 'home'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform translate-y-4" x-transition:enter-end="opacity-100 transform translate-y-0">
+    [Full home page content]
+  </div>
+  
+  <!-- About Page -->
+  <div x-show="page === 'about'" x-transition>
+    [Full about page content]
+  </div>
+  
+  <!-- More pages... -->
+</div>
+\`\`\`
+
+MANDATORY PAGES:
+1. NAV: sticky with backdrop-filter:blur(24px), logo + page navigation links + CTA button + hamburger (x-data Alpine)
+2. HOME PAGE: HERO + STATS + FEATURES + HOW IT WORKS + TESTIMONIALS + PRICING + FAQ + CTA
+3. ABOUT PAGE: Company story + Team members + Values + Achievements timeline
+4. SERVICES PAGE: Detailed service cards with images, descriptions, and pricing
+5. PORTFOLIO PAGE: Project gallery with filter by category (Alpine.js filtering)
+6. CONTACT PAGE: Contact form + Map embed + Contact info + Social links
+7. FOOTER: 4-column grid + social icons (Lucide) + newsletter form + footer-bottom with copyright
 
 MANDATORY CONTENT RULES:
 - ZERO Lorem ipsum — write real, specific, relevant content for this exact project

@@ -470,3 +470,134 @@ function finalizeHtml(html: string): string {
 
   return clean;
 }
+
+// ── Scoring System endpoint ────────────────────────────────────────────────
+qaRouter.post("/score", async (req, res) => {
+  const { html, prompt, lang } = req.body;
+  if (!html) return res.status(400).json({ error: "html required" });
+
+  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.BUILT_IN_FORGE_API_KEY;
+  const apiUrl = process.env.BUILT_IN_FORGE_API_URL || "https://api.deepseek.com";
+
+  try {
+    const response = await fetch(`${apiUrl}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        temperature: 0.1,
+        max_tokens: 500,
+        messages: [{
+          role: "user",
+          content: `You are a professional website quality evaluator. Score this HTML website on these criteria (0-100):
+
+HTML to evaluate:
+${html.slice(0, 8000)}
+
+Rate each criterion and return ONLY valid JSON:
+{
+  "design": <0-100>,
+  "ux": <0-100>,
+  "codeQuality": <0-100>,
+  "accessibility": <0-100>,
+  "performance": <0-100>,
+  "seo": <0-100>,
+  "responsive": <0-100>,
+  "multiPage": <0-100>,
+  "overall": <0-100>,
+  "issues": ["issue1", "issue2", "issue3"],
+  "passed": <true if all scores >= 85>
+}`
+        }]
+      })
+    });
+    const data = await response.json() as any;
+    const text = data.choices?.[0]?.message?.content || "{}";
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const scores = jsonMatch ? JSON.parse(jsonMatch[0]) : { overall: 70, passed: false, issues: [] };
+    res.json(scores);
+  } catch (err) {
+    res.status(500).json({ error: "Scoring failed", overall: 70, passed: false, issues: [] });
+  }
+});
+
+// ── Critic Loop endpoint ────────────────────────────────────────────────────
+qaRouter.post("/critic-loop", async (req, res) => {
+  const { html, scores, prompt, lang } = req.body;
+  if (!html || !scores) return res.status(400).json({ error: "html and scores required" });
+
+  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.BUILT_IN_FORGE_API_KEY;
+  const apiUrl = process.env.BUILT_IN_FORGE_API_URL || "https://api.deepseek.com";
+
+  // Build improvement instructions based on low scores
+  const improvements: string[] = [];
+  if (scores.design < 85) improvements.push("تحسين التصميم البصري — ألوان أكثر تناسقاً وتباين أفضل");
+  if (scores.ux < 85) improvements.push("تحسين تجربة المستخدم — CTAs أوضح ومسار تنقل أفضل");
+  if (scores.multiPage < 85) improvements.push("إضافة صفحات متعددة بـ Alpine.js SPA Router");
+  if (scores.accessibility < 85) improvements.push("إضافة aria-labels وalt text وfocus styles");
+  if (scores.responsive < 85) improvements.push("تحسين التجاوب مع الموبايل");
+  if (scores.seo < 85) improvements.push("إضافة meta tags وOpen Graph وStructured Data");
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  try {
+    const response = await fetch(`${apiUrl}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        temperature: 0.2,
+        max_tokens: 16000,
+        stream: true,
+        messages: [{
+          role: "user",
+          content: `أنت خبير تحسين مواقع. الموقع التالي حصل على هذه الدرجات:
+Design: ${scores.design}/100, UX: ${scores.ux}/100, Multi-page: ${scores.multiPage}/100
+Accessibility: ${scores.accessibility}/100, Responsive: ${scores.responsive}/100, SEO: ${scores.seo}/100
+
+المشاكل المكتشفة: ${scores.issues?.join(', ') || 'لا توجد'}
+
+التحسينات المطلوبة:
+${improvements.map((imp, i) => `${i+1}. ${imp}`).join('\n')}
+
+الكود الحالي:
+${html.slice(0, 10000)}
+
+أعد كتابة الكود بالكامل مع تطبيق جميع التحسينات.
+⚠️ أرجع HTML كاملاً يبدأ بـ <!DOCTYPE html> وينتهي بـ </body></html>`
+        }]
+      })
+    });
+
+    let fullContent = "";
+    const reader = (response.body as any)?.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const line of decoder.decode(value, { stream: true }).split("\n")) {
+        if (!line.startsWith("data: ") || line.includes("[DONE]")) continue;
+        try {
+          const parsed = JSON.parse(line.slice(6));
+          const token = parsed.choices?.[0]?.delta?.content || "";
+          if (token) {
+            fullContent += token;
+            res.write(`data: ${JSON.stringify({ type: "chunk", content: token })}\n\n`);
+          }
+        } catch {}
+      }
+    }
+
+    const cleanedHtml = fullContent.match(/```html\s*([\s\S]*?)```/i)?.[1] ||
+      (fullContent.includes("<!DOCTYPE") ? fullContent.slice(fullContent.indexOf("<!DOCTYPE")) : fullContent);
+
+    res.write(`data: ${JSON.stringify({ type: "done", improvedHtml: cleanedHtml })}\n\n`);
+    res.end();
+  } catch (err) {
+    res.write(`data: ${JSON.stringify({ type: "error", message: "Critic loop failed" })}\n\n`);
+    res.end();
+  }
+});

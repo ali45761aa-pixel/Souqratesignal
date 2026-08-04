@@ -957,6 +957,60 @@ export default function AgentBuilderPage() {
         }
       }
     }
+
+    // ── Scoring System + Critic Loop ──────────────────────────────────────────
+    const finalHtmlForScore = liveHtmlFile || (deduplicateFiles(allFiles).filter(f => f.language === "html").slice(-1)[0]?.content || "");
+    if (finalHtmlForScore.length > 1000) {
+      try {
+        toast.info(lang === "ar" ? "📊 جاري تقييم جودة الموقع..." : "📊 Scoring website quality...", { duration: 3000 });
+        const scoreRes = await fetch("/api/qa/score", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ html: finalHtmlForScore, prompt, lang }),
+        });
+        const scores = await scoreRes.json();
+        const overall = scores.overall || 70;
+        const passed = scores.passed || overall >= 85;
+        if (passed) {
+          toast.success(lang === "ar"
+            ? `✅ جودة الموقع: ${overall}/100 — ممتاز!`
+            : `✅ Website Quality: ${overall}/100 — Excellent!`,
+            { duration: 5000 }
+          );
+        } else {
+          toast.info(lang === "ar"
+            ? `🔄 الجودة ${overall}/100 — جاري التحسين التلقائي...`
+            : `🔄 Quality ${overall}/100 — Auto-improving...`,
+            { duration: 4000 }
+          );
+          const criticRes = await fetch("/api/qa/critic-loop", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ html: finalHtmlForScore, scores, prompt, lang }),
+          });
+          const criticReader = criticRes.body?.getReader();
+          const criticDecoder = new TextDecoder();
+          if (criticReader) {
+            while (true) {
+              const { done, value } = await criticReader.read();
+              if (done) break;
+              for (const line of criticDecoder.decode(value, { stream: true }).split("\n")) {
+                if (!line.startsWith("data: ")) continue;
+                try {
+                  const parsed = JSON.parse(line.slice(6));
+                  if (parsed.type === "done" && parsed.improvedHtml && parsed.improvedHtml.length > 1000) {
+                    setLiveHtmlFile(parsed.improvedHtml);
+                    toast.success(lang === "ar" ? "✅ تم تحسين الموقع تلقائياً!" : "✅ Website auto-improved!", { duration: 4000 });
+                  }
+                } catch {}
+              }
+            }
+          }
+        }
+      } catch {
+        // Scoring failed silently
+      }
+    }
   }, [plan, prompt, lang, isExecuting]);
 
   // ── Execute single step manually ─────────────────────────────────────────────
@@ -1922,21 +1976,75 @@ export default function AgentBuilderPage() {
         {/* ── Observability Tab ── */}
         {activeTab === "observe" && (
           <div className="h-full overflow-y-auto p-3">
-            <div className="max-w-3xl mx-auto space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-xl border border-border bg-card/50 p-3 text-center">
-                  <p className="text-2xl font-bold text-primary">${totalCost.toFixed(4)}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{lang === "ar" ? "التكلفة الإجمالية" : "Total Cost"}</p>
+           <div className="max-w-3xl mx-auto space-y-4">
+             <div className="grid grid-cols-3 gap-3">
+               <div className="rounded-xl border border-border bg-card/50 p-3 text-center">
+                 <p className="text-2xl font-bold text-primary">${totalCost.toFixed(4)}</p>
+                 <p className="text-xs text-muted-foreground mt-1">{lang === "ar" ? "التكلفة الإجمالية" : "Total Cost"}</p>
+               </div>
+               <div className="rounded-xl border border-border bg-card/50 p-3 text-center">
+                 <p className="text-2xl font-bold text-yellow-400">{(totalTokens/1000).toFixed(1)}k</p>
+                 <p className="text-xs text-muted-foreground mt-1">{lang === "ar" ? "إجمالي التوكنز" : "Total Tokens"}</p>
+               </div>
+               <div className="rounded-xl border border-border bg-card/50 p-3 text-center">
+                 <p className="text-2xl font-bold text-green-400">{observability.length}</p>
+                 <p className="text-xs text-muted-foreground mt-1">{lang === "ar" ? "عدد الخطوات" : "Steps"}</p>
+               </div>
+             </div>
+
+              {/* Scoring Dashboard */}
+              {htmlFile && (
+                <div className="rounded-xl border border-border bg-card/30 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold">📊 {lang === "ar" ? "تقييم الجودة الشامل" : "Quality Score"}</h3>
+                    <button onClick={async () => {
+                      setIsRunningQA(true);
+                      try {
+                        const res = await fetch("/api/qa/score", {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ html: htmlFile.content, prompt, lang }),
+                        });
+                        const scores = await res.json();
+                        setQaReport((prev: any) => ({ ...prev, scores }));
+                        if (!scores.passed) {
+                          toast.info(lang === "ar" ? "🔄 جاري التحسين التلقائي..." : "🔄 Auto-improving...", { duration: 3000 });
+                          const criticRes = await fetch("/api/qa/critic-loop", {
+                            method: "POST", headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ html: htmlFile.content, scores, prompt, lang }),
+                          });
+                          const reader = criticRes.body?.getReader(); const decoder = new TextDecoder();
+                          if (reader) { while (true) { const { done, value } = await reader.read(); if (done) break; for (const line of decoder.decode(value, { stream: true }).split("\n")) { if (!line.startsWith("data: ")) continue; try { const p = JSON.parse(line.slice(6)); if (p.type === "done" && p.improvedHtml?.length > 1000) { setLiveHtmlFile(p.improvedHtml); toast.success(lang === "ar" ? "✅ تم التحسين!" : "✅ Improved!"); } } catch {} } } }
+                        } else {
+                          toast.success(lang === "ar" ? `✅ جودة ممتازة: ${scores.overall}/100` : `✅ Excellent quality: ${scores.overall}/100`);
+                        }
+                      } catch (e) { toast.error("Scoring failed"); }
+                      setIsRunningQA(false);
+                    }} disabled={isRunningQA} className="text-xs px-3 py-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors flex items-center gap-1">
+                      {isRunningQA ? <Loader2 className="w-3 h-3 animate-spin" /> : "📊"} {lang === "ar" ? "تقييم وتحسين" : "Score & Improve"}
+                    </button>
+                  </div>
+                  {qaReport?.scores && (
+                    <div className="grid grid-cols-4 gap-2">
+                      {([
+                        { label: lang === "ar" ? "تصميم" : "Design", score: qaReport.scores.design ?? 0, icon: "🎨" },
+                        { label: "UX", score: qaReport.scores.ux ?? 0, icon: "👤" },
+                        { label: lang === "ar" ? "صفحات" : "Pages", score: qaReport.scores.multiPage ?? 0, icon: "📄" },
+                        { label: lang === "ar" ? "وصول" : "A11y", score: qaReport.scores.accessibility ?? 0, icon: "♿" },
+                        { label: lang === "ar" ? "أداء" : "Perf", score: qaReport.scores.performance ?? 0, icon: "⚡" },
+                        { label: "SEO", score: qaReport.scores.seo ?? 0, icon: "🔍" },
+                        { label: lang === "ar" ? "موبايل" : "Mobile", score: qaReport.scores.responsive ?? 0, icon: "📱" },
+                        { label: lang === "ar" ? "الكل" : "Overall", score: qaReport.scores.overall ?? 0, icon: "🏆" },
+                      ] as {label:string;score:number;icon:string}[]).map(item => (
+                        <div key={item.label} className={cn("rounded-lg p-2 text-center border", item.score >= 85 ? "bg-green-500/10 border-green-500/20" : item.score >= 70 ? "bg-yellow-500/10 border-yellow-500/20" : "bg-red-500/10 border-red-500/20")}>
+                          <div className="text-sm">{item.icon}</div>
+                          <div className={cn("text-base font-bold", item.score >= 85 ? "text-green-400" : item.score >= 70 ? "text-yellow-400" : "text-red-400")}>{item.score}</div>
+                          <div className="text-xs text-muted-foreground">{item.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="rounded-xl border border-border bg-card/50 p-3 text-center">
-                  <p className="text-2xl font-bold text-yellow-400">{(totalTokens/1000).toFixed(1)}k</p>
-                  <p className="text-xs text-muted-foreground mt-1">{lang === "ar" ? "إجمالي التوكنز" : "Total Tokens"}</p>
-                </div>
-                <div className="rounded-xl border border-border bg-card/50 p-3 text-center">
-                  <p className="text-2xl font-bold text-green-400">{observability.length}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{lang === "ar" ? "عدد الخطوات" : "Steps"}</p>
-                </div>
-              </div>
+              )}
               {htmlFile && (
                 <div className="rounded-xl border border-border bg-card/30 p-4">
                   <div className="flex items-center justify-between mb-3">
