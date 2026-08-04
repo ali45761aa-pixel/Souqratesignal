@@ -13,6 +13,7 @@ import {
   TestTube, BookOpen, Rocket, Settings, MessageCircle
   , Target, Layers, Lightbulb, GitBranch, Microscope
 } from "lucide-react";
+import { ExternalLink, Github } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface PlanStep {
@@ -128,6 +129,8 @@ export default function AgentBuilderPage() {
   const [qaMessages, setQaMessages] = useState<QAMessage[]>([]);
   const [qaInput, setQaInput] = useState("");
   const [isAsking, setIsAsking] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deployedUrl, setDeployedUrl] = useState<string | null>(null);
   const [liveHtmlFile, setLiveHtmlFile] = useState<string | null>(null); // live preview during execution
   const allFilesRef = useRef<{ name: string; content: string; language: string }[]>([]); // persistent ref for allFiles
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -375,6 +378,33 @@ export default function AgentBuilderPage() {
     toast.success(lang === "ar" ? "تم تحميل المشروع!" : "Project downloaded!");
   };
 
+  // ── Deploy to Vercel ─────────────────────────────────────────────────────────
+  const handleDeployVercel = async () => {
+    if (!projectMemory?.allFiles.length) return;
+    setIsDeploying(true);
+    try {
+      const projectName = prompt?.slice(0, 30).replace(/[^a-zA-Z0-9؀-ۿ\s]/g, '').trim() || 'nexus-project';
+      const res = await fetch('/api/deploy/vercel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: projectMemory.allFiles, projectName }),
+      });
+      const data = await res.json();
+      if (data.success && data.url) {
+        setDeployedUrl(data.url);
+        toast.success(lang === 'ar' ? `✅ تم النشر! ${data.url}` : `✅ Deployed! ${data.url}`);
+      } else if (data.configRequired) {
+        toast.error(lang === 'ar' ? 'أضف VERCEL_TOKEN من لوحة الإدارة → API Keys' : 'Add VERCEL_TOKEN from Admin → API Keys');
+      } else {
+        toast.error(data.error || 'Deploy failed');
+      }
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const allFiles = projectMemory?.allFiles || [];
   // Prefer the latest HTML file: from projectMemory, then liveHtmlFile as fallback
@@ -491,6 +521,23 @@ export default function AgentBuilderPage() {
                 <Download className="w-3 h-3" />
                 ZIP
               </button>
+            )}
+            {projectMemory && (
+              <button
+                onClick={handleDeployVercel}
+                disabled={isDeploying}
+                className="flex items-center gap-1 px-3 py-2 text-xs bg-black border border-white/20 text-white rounded-lg my-1 hover:bg-white/10 transition-colors disabled:opacity-50"
+              >
+                {isDeploying ? <Loader2 className="w-3 h-3 animate-spin" /> : <ExternalLink className="w-3 h-3" />}
+                {lang === "ar" ? "نشر" : "Deploy"}
+              </button>
+            )}
+            {deployedUrl && (
+              <a href={deployedUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 px-3 py-2 text-xs bg-green-500/20 border border-green-500/30 text-green-400 rounded-lg my-1 hover:bg-green-500/30 transition-colors">
+                <ExternalLink className="w-3 h-3" />
+                {lang === "ar" ? "فتح الموقع" : "Open Site"}
+              </a>
             )}
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 
+import { detectTheme, generateDesignSystemCSS, getDesignInstructions, DESIGN_THEMES } from '../lib/designSystem';
 const agentsRouter = Router();
 
 // ── Agent Definitions ─────────────────────────────────────────────────────────
@@ -668,7 +669,10 @@ function buildAgentPrompt(agentId: string, prompt: string, lang: string, context
   const ar = lang === "ar";
   const ctx = context ? `\n\nسياق المشروع حتى الآن:\n${context.slice(0, 2000)}` : "";
 
-  const prompts: Record<string, string> = {
+  const themeKey = detectTheme(prompt);
+  const designCSS = generateDesignSystemCSS(themeKey);
+  const designInstructions = getDesignInstructions(themeKey, prompt);
+    const prompts: Record<string, string> = {
     analyzer: ar
       ? `أنت خبير تحليل متطلبات. حلّل المشروع وأخرج:
 1. ملخص المشروع (3 أسطر)
@@ -698,23 +702,35 @@ function buildAgentPrompt(agentId: string, prompt: string, lang: string, context
 5. Ready-to-use CSS Variables examples${ctx}`,
 
     frontend: ar
-      ? `أنت مطور Frontend خبير. ابنِ كود HTML/CSS/JavaScript احترافياً كاملاً:
-- استخدم Tailwind CSS من CDN
-- استخدم Alpine.js للتفاعل
-- أضف animations سلسة
-- اجعله متجاوباً 100% مع الهاتف
-- أضف محتوى عربياً حقيقياً ومناسباً
-- اجعل التصميم احترافياً وجميلاً
-أرجع الكود الكامل فقط بدون شرح خارجه${ctx}`
-      : `You are an expert Frontend developer. Build complete professional HTML/CSS/JavaScript:
-- Use Tailwind CSS from CDN
-- Use Alpine.js for interactivity
-- Add smooth animations
-- Make it 100% mobile responsive
-- Add real and appropriate content
-- Make design professional and beautiful
-Return complete code only without external explanation${ctx}`,
+      ? `أنت مطور Frontend خبير بمستوى عالمي. أنشئ موقعاً احترافياً مذهلاً يُباع بآلاف الدولارات.
 
+${designInstructions}
+
+متطلبات صارمة:
+1. ابدأ بـ <!DOCTYPE html> كامل
+2. ادمج CSS Design System كاملاً في <style> (الـ CSS المُعرَّف في designCSS)
+3. استخدم CSS variables المُعرَّفة: var(--primary), var(--bg), var(--gradient), إلخ
+4. كل قسم مكتمل: Hero + Features + Stats + Testimonials + CTA + Footer
+5. أضف JavaScript: mobile menu, smooth scroll, IntersectionObserver للـ animations
+6. استخدم صور Unsplash حقيقية: https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&q=80
+7. أضف محتوى عربياً حقيقياً ومناسباً للمشروع
+8. gradient text للعناوين، glow effects للأزرار، glassmorphism للبطاقات
+9. RTL كامل، dir="rtl" على html
+10. أرجع الكود الكامل فقط — لا شرح${ctx}`
+      : `You are a world-class Frontend developer. Build a stunning website worth thousands of dollars.
+
+${designInstructions}
+
+STRICT REQUIREMENTS:
+1. Start with complete <!DOCTYPE html>
+2. Embed full CSS Design System in <style> tag (the CSS from designCSS variable)
+3. Use CSS variables EXACTLY: var(--primary), var(--bg), var(--gradient), etc.
+4. Every section complete: Hero + Features + Stats + Testimonials + CTA + Footer
+5. Add JavaScript: mobile menu, smooth scroll, IntersectionObserver for scroll animations
+6. Use real Unsplash images: https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&q=80
+7. Add real, relevant content matching the project
+8. gradient text on headings, glow on buttons, glassmorphism cards
+9. Return COMPLETE code only — no explanation${ctx}`,
     backend: ar
       ? `أنت مطور Backend خبير. اكتب كود Node.js + Express كاملاً:
 - RESTful API endpoints
