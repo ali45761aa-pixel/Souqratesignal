@@ -115,9 +115,9 @@ export default function AdminPage() {
   const { data: apiKeys, refetch: refetchKeys } = trpc.admin.getApiKeys.useQuery();
   const { data: aiSettings } = trpc.admin.getAiSettings.useQuery();
 
-  const upsertKey = trpc.admin.upsertApiKey.useMutation({
+  const upsertKey = trpc.admin.setApiKey.useMutation({
     onSuccess: () => { toast.success(tr.settings.keyAdded); refetchKeys(); },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const deleteKey = trpc.admin.deleteApiKey.useMutation({
@@ -183,7 +183,7 @@ export default function AdminPage() {
                     service={service}
                     existingKeys={apiKeys ?? []}
                     onSave={(svc, key) => upsertKey.mutate({ service: svc, keyValue: key })}
-                    onDelete={(id) => deleteKey.mutate({ id })}
+                    onDelete={(id) => deleteKey.mutate({ service: (apiKeys ?? []).find((k: any) => k.id === id)?.service ?? "" })}
                   />
                 ))}
               </CardContent>

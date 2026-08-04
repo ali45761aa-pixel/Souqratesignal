@@ -124,11 +124,20 @@ export default function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Button variant="outline" className="w-full gap-2" onClick={() => toast.info("Export coming soon")}>
+          <Button variant="outline" className="w-full gap-2" onClick={() => {
+            const data = { settings: { lang: localStorage.getItem("lang"), theme: localStorage.getItem("theme") }, exportedAt: new Date().toISOString() };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "ai_agent_backup.json"; a.click(); URL.revokeObjectURL(url);
+            toast.success(lang === "ar" ? "تم تصدير البيانات" : "Data exported");
+          }}>
             <Download className="w-4 h-4" />
             {lang === "ar" ? "تصدير جميع البيانات" : "Export All Data"}
           </Button>
-          <Button variant="outline" className="w-full gap-2" onClick={() => toast.info("Import coming soon")}>
+          <Button variant="outline" className="w-full gap-2" onClick={() => {
+            const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".json";
+            inp.onchange = (e) => { const file = (e.target as HTMLInputElement).files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { try { const d = JSON.parse(ev.target?.result as string); if (d.settings?.lang) localStorage.setItem("lang", d.settings.lang); toast.success(lang === "ar" ? "تم الاستيراد" : "Imported"); window.location.reload(); } catch { toast.error(lang === "ar" ? "ملف غير صالح" : "Invalid file"); } }; reader.readAsText(file); };
+            inp.click();
+          }}>
             <Upload className="w-4 h-4" />
             {lang === "ar" ? "استيراد البيانات" : "Import Data"}
           </Button>
@@ -142,4 +151,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

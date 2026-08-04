@@ -122,3 +122,31 @@
 - [x] Generate Format endpoint — /api/agents/generate-format
 - [x] Self-Heal endpoint — /api/agents/self-heal
 - [x] Enhanced validate-html — 4 separate scores (SEO/Perf/Mobile/A11y)
+
+## Phase 10: Bug Fixes & Missing Features (from audit report)
+
+### 🔴 Critical Bugs
+- [ ] Fix CRMPage crash — TypeError: Cannot read properties of undefined (reading 'toFixed')
+- [ ] Fix DashboardLayout sidebar — replace Page 1/Page 2 placeholders with real nav
+- [ ] Stop walletMonitor SSL errors — disable when DB not connected
+
+### 🟠 Database Persistence
+- [ ] Connect projects router to DB (replace MOCK_PROJECTS)
+- [ ] Connect CRM router to DB (replace MOCK_CLIENTS/MOCK_INVOICES/MOCK_TICKETS)
+- [ ] Connect payments router to DB (replace MOCK_PAYMENTS)
+- [ ] Connect admin API keys to DB (replace MOCK_API_KEYS)
+- [ ] Save chat messages to DB
+
+### 🟠 Pages & Content
+- [ ] Professional Landing Page that sells the product
+- [ ] Real preview images for templates
+- [ ] Fix VersionControlPage to fetch real data
+- [ ] Fix LivePreviewPage to fetch real data
+- [ ] Fix SettingsPage Export/Import functionality
+- [ ] Add BuilderPage to sidebar navigation
+
+### 🟡 Agent Builder Improvements
+- [ ] Split View — code + preview side by side
+- [ ] Chat during build — continuous conversation
+- [ ] Real Observability from DeepSeek API response
+- [ ] Stripe/Paymob tabs in Payments page

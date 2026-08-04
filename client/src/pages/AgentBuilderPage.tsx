@@ -14,7 +14,7 @@ import {
   TestTube, BookOpen, Rocket, Settings, MessageCircle
   , Target, Layers, Lightbulb, GitBranch, Microscope
 } from "lucide-react";
-import { ExternalLink, Github, Upload, Server, Maximize2, Minimize2, Terminal, History, RotateCcw, DollarSign, Wifi, WifiOff, Wrench, Code2 as ReactIcon, FileCode, Zap as BotIcon, Layout } from "lucide-react";
+import { ExternalLink, Github, Upload, Server, Maximize2, Minimize2, Terminal, History, RotateCcw, DollarSign, Wifi, WifiOff, Wrench, Code2 as ReactIcon, FileCode, Zap as BotIcon, Layout, Columns2 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface PlanStep {
@@ -172,6 +172,7 @@ export default function AgentBuilderPage() {
   const [isStandbyMode, setIsStandbyMode] = useState(false);
   const [standbyPrompt, setStandbyPrompt] = useState("");
   const [isStandbyExecuting, setIsStandbyExecuting] = useState(false);
+  const [isSplitView, setIsSplitView] = useState(false);
   const [htmlValidation, setHtmlValidation] = useState<{ score: number; seoScore?: number; perfScore?: number; mobileScore?: number; a11yScore?: number; errors: string[]; warnings: string[]; suggestions?: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
@@ -770,21 +771,35 @@ export default function AgentBuilderPage() {
                 const errMsg = parsed.message || "خطأ من الخادم";
                 setPlan(prev => prev.map((s, j) => j === i ? { ...s, status: "error", errorMessage: errMsg, expanded: true } : s));
               } else if (parsed.type === "done") {
-                const stepFiles = parsed.files || [];
-                allFiles.push(...stepFiles);
-                allFilesRef.current = [...allFilesRef.current, ...stepFiles];
-                // Update live preview if HTML file found
-                // Only set as HTML preview if content actually contains HTML markup
-                const htmlStep = stepFiles.find((f: any) =>
-                  f.language === "html" &&
-                  (f.content.includes("<!DOCTYPE") || f.content.includes("<html") || f.content.includes("<body"))
-                );
-                if (htmlStep) { setLiveHtmlFile(htmlStep.content); setActiveTab("preview"); }
-                projectContext += `\n\n=== ${step.agentId} output ===\n${stepContent.slice(0, 1000)}`;
-                setPlan(prev => prev.map((s, j) => j === i ? {
-                  ...s, status: "done", output: stepContent,
-                  files: stepFiles, streamingText: undefined, expanded: false, hadThinking: parsed.hadThinking,
-                } : s));
+               const stepFiles = parsed.files || [];
+               allFiles.push(...stepFiles);
+               allFilesRef.current = [...allFilesRef.current, ...stepFiles];
+               // Update live preview if HTML file found
+               // Only set as HTML preview if content actually contains HTML markup
+               const htmlStep = stepFiles.find((f: any) =>
+                 f.language === "html" &&
+                 (f.content.includes("<!DOCTYPE") || f.content.includes("<html") || f.content.includes("<body"))
+               );
+               if (htmlStep) { setLiveHtmlFile(htmlStep.content); setActiveTab("preview"); }
+               projectContext += `\n\n=== ${step.agentId} output ===\n${stepContent.slice(0, 1000)}`;
+               setPlan(prev => prev.map((s, j) => j === i ? {
+                 ...s, status: "done", output: stepContent,
+                 files: stepFiles, streamingText: undefined, expanded: false, hadThinking: parsed.hadThinking,
+               } : s));
+                // Real observability from DeepSeek API usage
+                if (parsed.usage) {
+                  const promptTokens: number = parsed.usage.prompt_tokens ?? 0;
+                  const completionTokens: number = parsed.usage.completion_tokens ?? 0;
+                  const totalTok: number = parsed.usage.total_tokens ?? (promptTokens + completionTokens);
+                  setObservability(prev => [...prev, {
+                    stepId: step.id,
+                    agentId: step.agentId,
+                    tokensIn: promptTokens,
+                    tokensOut: completionTokens,
+                    durationMs: 0,
+                    costUSD: (totalTok / 1000) * 0.00014,
+                  }]);
+                }
               }
             } catch {}
           }
@@ -1126,7 +1141,22 @@ export default function AgentBuilderPage() {
             {/* Action buttons */}
             <div className="ms-auto flex items-center gap-1 py-1">
               {totalTokens > 0 && (
-                <span className="text-xs text-muted-foreground/50 px-1 hidden lg:block">{(totalTokens/1000).toFixed(1)}k</span>
+               <span className="text-xs text-muted-foreground/50 px-1 hidden lg:block">{(totalTokens/1000).toFixed(1)}k</span>
+             )}
+              {htmlFile && (
+                <button
+                  onClick={() => setIsSplitView(v => !v)}
+                  title={lang === "ar" ? "عرض مقسوم" : "Split View"}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg border transition-colors",
+                    isSplitView
+                      ? "bg-primary/10 border-primary/30 text-primary"
+                      : "bg-card border-border text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Columns2 className="w-3 h-3" />
+                  <span className="hidden sm:inline">{lang === "ar" ? "مقسوم" : "Split"}</span>
+                </button>
               )}
               {projectMemory && (
                 <button onClick={handleDownload} className="flex items-center gap-1 px-2.5 py-1.5 text-xs gradient-primary text-white rounded-lg">
@@ -1474,7 +1504,37 @@ export default function AgentBuilderPage() {
         )}
 
         {/* ── Preview Tab ── */}
-        {activeTab === "preview" && (
+        {/* ── Split View (Plan + Preview side by side) ── */}
+        {isSplitView && htmlFile && (
+          <div className="h-full flex overflow-hidden">
+            {/* Left: Plan */}
+            <div className="w-1/2 border-e border-border overflow-y-auto p-3">
+              <div className="space-y-2">
+                {plan.map((step, i) => (
+                  <div key={step.id} className={cn("rounded-xl border px-3 py-2 text-xs transition-all", step.status === "running" ? "border-primary/50 bg-primary/5" : step.status === "done" ? "border-green-500/20 bg-green-500/5" : step.status === "error" ? "border-red-500/20 bg-red-500/5" : "border-border bg-card/50")}>
+                    <div className="flex items-center gap-2">
+                      {step.status === "done" && <span className="text-green-400">✓</span>}
+                      {step.status === "running" && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+                      {step.status === "error" && <span className="text-red-400">✗</span>}
+                      {step.status === "pending" && <span className="text-muted-foreground/30">○</span>}
+                      <span className={cn("font-medium", step.status === "running" ? "text-primary" : step.status === "done" ? "text-green-400" : "text-foreground")}>
+                        {lang === "ar" ? step.titleAr : step.titleEn}
+                      </span>
+                    </div>
+                    {step.status === "running" && step.streamingText && (
+                      <p className="text-muted-foreground/60 mt-1 line-clamp-2">{step.streamingText.slice(-200)}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Right: Preview */}
+            <div className="w-1/2 overflow-hidden bg-white">
+              <iframe ref={iframeRef} srcDoc={injectConsoleInterceptor(htmlFile.content)} className="w-full h-full border-0" sandbox="allow-scripts allow-same-origin allow-forms" title="Split Preview" />
+            </div>
+          </div>
+        )}
+        {!isSplitView && activeTab === "preview" && (
           <div className="h-full flex flex-col overflow-hidden">
             <div className="shrink-0 border-b border-border bg-card/20 px-3 py-2 flex items-center gap-2 flex-wrap">
               <div className="flex bg-background rounded-lg p-0.5 border border-border">

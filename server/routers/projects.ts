@@ -1,22 +1,34 @@
 import { z } from "zod";
-import { router, publicProcedure } from "../_core/trpc";
+import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
+import { getDb, projects, projectVersions } from "../db";
+import { eq, desc, and } from "drizzle-orm";
 
-// Mock data for demo
-const MOCK_PROJECTS = [
-  { id: 1, userId: 1, name: "متجر عطور", projectType: "ecommerce", status: "completed", createdAt: new Date(), updatedAt: new Date(), totalCost: 150.50, tokensUsed: 45000, isFavorite: true, tags: ["ecommerce", "عطور"], prompt: "ابني لي متجر عطور" },
-  { id: 2, userId: 1, name: "بوت تليغرام", projectType: "bot", status: "active", createdAt: new Date(), updatedAt: new Date(), totalCost: 75.00, tokensUsed: 30000, isFavorite: false, tags: ["bot", "تليغرام"], prompt: "اصنع بوت تليغرام" },
-  { id: 3, userId: 1, name: "موقع شركة", projectType: "company", status: "completed", createdAt: new Date(), updatedAt: new Date(), totalCost: 225.00, tokensUsed: 50000, isFavorite: true, tags: ["company", "موقع"], prompt: "ابني موقع شركة" },
+// Fallback mock data when DB is not connected
+const MOCK_PROJECTS: any[] = [
+  { id: 1, userId: 1, name: "متجر عطور", projectType: "ecommerce", status: "completed", createdAt: new Date(), updatedAt: new Date(), totalCost: 150.50, tokensUsed: 45000, isFavorite: true, tags: ["ecommerce"], prompt: "ابني لي متجر عطور" },
+  { id: 2, userId: 1, name: "بوت تليغرام", projectType: "bot", status: "active", createdAt: new Date(), updatedAt: new Date(), totalCost: 75.00, tokensUsed: 30000, isFavorite: false, tags: ["bot"], prompt: "اصنع بوت تليغرام" },
+  { id: 3, userId: 1, name: "موقع شركة", projectType: "company", status: "completed", createdAt: new Date(), updatedAt: new Date(), totalCost: 225.00, tokensUsed: 50000, isFavorite: true, tags: ["company"], prompt: "ابني موقع شركة" },
 ];
 
 export const projectsRouter = router({
-  list: publicProcedure.query(async () => {
-    return MOCK_PROJECTS;
+  list: publicProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return MOCK_PROJECTS;
+    try {
+      const userId = (ctx as any).user?.id ?? 1;
+      return await db.select().from(projects).where(eq(projects.userId, userId)).orderBy(desc(projects.createdAt));
+    } catch { return MOCK_PROJECTS; }
   }),
 
   get: publicProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
-      return MOCK_PROJECTS.find(p => p.id === input.id) ?? null;
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) return MOCK_PROJECTS.find(p => p.id === input.id) ?? null;
+      try {
+        const rows = await db.select().from(projects).where(eq(projects.id, input.id)).limit(1);
+        return rows[0] ?? null;
+      } catch { return null; }
     }),
 
   create: publicProcedure
@@ -25,83 +37,117 @@ export const projectsRouter = router({
       prompt: z.string().min(1),
       projectType: z.string().optional(),
       templateId: z.number().optional(),
+      totalCost: z.number().optional(),
+      tokensUsed: z.number().optional(),
+      status: z.enum(["active", "completed", "failed", "paused"]).optional(),
     }))
-    .mutation(async ({ input }) => {
-      const newProject = {
-        id: MOCK_PROJECTS.length + 1,
-        userId: 1,
-        name: input.name,
-        projectType: input.projectType ?? "custom",
-        status: "active",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        totalCost: 0,
-        tokensUsed: 0,
-        isFavorite: false,
-        tags: [] as string[],
-        prompt: input.prompt,
-      };
-      MOCK_PROJECTS.push(newProject);
-      return newProject;
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const userId = (ctx as any).user?.id ?? 1;
+      if (!db) {
+        const newProject = { id: MOCK_PROJECTS.length + 1, userId, ...input, status: input.status ?? "active", totalCost: input.totalCost ?? 0, tokensUsed: input.tokensUsed ?? 0, isFavorite: false, tags: [], createdAt: new Date(), updatedAt: new Date() };
+        MOCK_PROJECTS.unshift(newProject);
+        return newProject;
+      }
+      try {
+        const rows = await db.insert(projects).values({
+          userId,
+          name: input.name,
+          prompt: input.prompt,
+          projectType: input.projectType,
+          templateId: input.templateId,
+          status: (input.status ?? "active") as any,
+          totalCost: input.totalCost ?? 0,
+          tokensUsed: input.tokensUsed ?? 0,
+        }).returning();
+        return rows[0];
+      } catch (e) {
+        const newProject = { id: MOCK_PROJECTS.length + 1, userId, ...input, status: input.status ?? "active", totalCost: input.totalCost ?? 0, tokensUsed: input.tokensUsed ?? 0, isFavorite: false, tags: [], createdAt: new Date(), updatedAt: new Date() };
+        MOCK_PROJECTS.unshift(newProject);
+        return newProject;
+      }
     }),
 
   update: publicProcedure
     .input(z.object({
       id: z.number(),
       name: z.string().optional(),
-      status: z.enum(["active","completed","failed","paused"]).optional(),
+      status: z.enum(["active", "completed", "failed", "paused"]).optional(),
       isFavorite: z.boolean().optional(),
-      rating: z.number().min(1).max(5).optional(),
-      notes: z.string().optional(),
-      tags: z.array(z.string()).optional(),
+      totalCost: z.number().optional(),
+      tokensUsed: z.number().optional(),
+      previewUrl: z.string().optional(),
     }))
-    .mutation(async ({ input }) => {
-      const project = MOCK_PROJECTS.find(p => p.id === input.id);
-      if (project && input.status) {
-        project.status = input.status;
-        project.updatedAt = new Date();
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        const p = MOCK_PROJECTS.find(p => p.id === input.id);
+        if (p) Object.assign(p, input);
+        return p;
       }
-      return { success: true };
+      try {
+        const { id, ...updates } = input;
+        const rows = await db.update(projects).set({ ...updates, updatedAt: new Date() }).where(eq(projects.id, id)).returning();
+        return rows[0];
+      } catch { return null; }
     }),
 
   delete: publicProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
-      const index = MOCK_PROJECTS.findIndex(p => p.id === input.id);
-      if (index !== -1) {
-        MOCK_PROJECTS.splice(index, 1);
+      const db = await getDb();
+      if (!db) {
+        const idx = MOCK_PROJECTS.findIndex(p => p.id === input.id);
+        if (idx >= 0) MOCK_PROJECTS.splice(idx, 1);
+        return { success: true };
       }
-      return { success: true };
+      try {
+        await db.delete(projects).where(eq(projects.id, input.id));
+        return { success: true };
+      } catch { return { success: false }; }
     }),
 
-  getTasks: publicProcedure
-    .input(z.object({ projectId: z.number() }))
-    .query(async () => {
-      return [
-        { id: 1, projectId: 1, stepOrder: 1, title: "التخطيط", status: "completed", elapsed: 120 },
-        { id: 2, projectId: 1, stepOrder: 2, title: "البرمجة", status: "completed", elapsed: 450 },
-        { id: 3, projectId: 1, stepOrder: 3, title: "الاختبار", status: "completed", elapsed: 180 },
-      ];
-    }),
-
-  getVersions: publicProcedure
-    .input(z.object({ projectId: z.number() }))
-    .query(async () => {
-      return [
-        { id: 1, projectId: 1, versionNumber: 3, label: "إضافة نظام الدفع", createdAt: new Date() },
-        { id: 2, projectId: 1, versionNumber: 2, label: "تصميم الواجهة", createdAt: new Date() },
-        { id: 3, projectId: 1, versionNumber: 1, label: "الإنشاء الأولي", createdAt: new Date() },
-      ];
-    }),
-
-  stats: publicProcedure.query(async () => {
-    return {
-      total: MOCK_PROJECTS.length,
-      active: MOCK_PROJECTS.filter(p => p.status === "active").length,
-      completed: MOCK_PROJECTS.filter(p => p.status === "completed").length,
-      failed: MOCK_PROJECTS.filter(p => p.status === "failed").length,
-      totalCost: MOCK_PROJECTS.reduce((s, p) => s + (p.totalCost ?? 0), 0),
-      tokensUsed: MOCK_PROJECTS.reduce((s, p) => s + (p.tokensUsed ?? 0), 0),
-    };
+  stats: publicProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) {
+      const all = MOCK_PROJECTS;
+      return {
+        total: all.length,
+        active: all.filter(p => p.status === "active").length,
+        completed: all.filter(p => p.status === "completed").length,
+        failed: all.filter(p => p.status === "failed").length,
+        totalCost: all.reduce((s, p) => s + (p.totalCost ?? 0), 0),
+        tokensUsed: all.reduce((s, p) => s + (p.tokensUsed ?? 0), 0),
+      };
+    }
+    try {
+      const userId = (ctx as any).user?.id ?? 1;
+      const all = await db.select().from(projects).where(eq(projects.userId, userId));
+      return {
+        total: all.length,
+        active: all.filter(p => p.status === "active").length,
+        completed: all.filter(p => p.status === "completed").length,
+        failed: all.filter(p => p.status === "failed").length,
+        totalCost: all.reduce((s, p) => s + (p.totalCost ?? 0), 0),
+        tokensUsed: all.reduce((s, p) => s + (p.tokensUsed ?? 0), 0),
+      };
+    } catch { return { total: 0, active: 0, completed: 0, failed: 0, totalCost: 0, tokensUsed: 0 }; }
   }),
+
+  toggleFavorite: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        const p = MOCK_PROJECTS.find(p => p.id === input.id);
+        if (p) p.isFavorite = !p.isFavorite;
+        return p;
+      }
+      try {
+        const rows = await db.select({ isFavorite: projects.isFavorite }).from(projects).where(eq(projects.id, input.id)).limit(1);
+        const current = rows[0]?.isFavorite ?? false;
+        const updated = await db.update(projects).set({ isFavorite: !current }).where(eq(projects.id, input.id)).returning();
+        return updated[0];
+      } catch { return null; }
+    }),
 });

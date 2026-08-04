@@ -155,7 +155,7 @@ export default function CRMPage() {
                       </div>
                     </div>
                     <div className="text-end shrink-0">
-                      <p className="text-sm font-semibold text-green-400">${client.totalPaid.toFixed(2)}</p>
+                      <p className="text-sm font-semibold text-green-400">${((client as any).totalPaid ?? (client as any).totalSpent ?? 0).toFixed(2)}</p>
                       <p className="text-xs text-muted-foreground">{lang === "ar" ? "إجمالي" : "total paid"}</p>
                     </div>
                   </CardContent>
@@ -226,4 +226,3 @@ export default function CRMPage() {
     </div>
   );
 }
-

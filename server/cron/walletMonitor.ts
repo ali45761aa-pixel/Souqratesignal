@@ -156,6 +156,11 @@ async function checkBSC(address: string, memo: string, amount: number): Promise<
 
 // ─── Start Cron Job ───────────────────────────────────────────────────────────
 export function startWalletMonitorCron() {
+  // Only start if DATABASE_URL is configured
+  if (!process.env.DATABASE_URL) {
+    console.log("[WalletMonitor] Skipped — DATABASE_URL not configured");
+    return;
+  }
   console.log("[WalletMonitor] Starting wallet monitor (every 30 seconds)");
   // Run immediately
   monitorCryptoWallets();

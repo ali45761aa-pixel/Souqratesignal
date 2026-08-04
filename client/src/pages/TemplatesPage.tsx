@@ -30,18 +30,18 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 
 // Built-in template data (shown when DB is empty)
 const BUILTIN_TEMPLATES = [
-  { id: 1, name: "Modern Company", nameAr: "موقع شركة عصري", category: "company_website", theme: "modern", description: "Clean modern company website", descriptionAr: "موقع شركة نظيف وعصري", features: ["SEO", "Blog", "Contact", "Portfolio"], usageCount: 142 },
-  { id: 2, name: "Bold Agency", nameAr: "وكالة جريئة", category: "company_website", theme: "bold", description: "Bold agency website", descriptionAr: "موقع وكالة جريء", features: ["Hero", "Services", "Team", "CTA"], usageCount: 98 },
-  { id: 3, name: "E-commerce Pro", nameAr: "متجر احترافي", category: "ecommerce", theme: "modern", description: "Full e-commerce with payments", descriptionAr: "متجر كامل مع نظام دفع", features: ["Cart", "Payments", "Inventory", "Orders"], usageCount: 215 },
-  { id: 4, name: "Fashion Store", nameAr: "متجر أزياء", category: "ecommerce", theme: "minimal", description: "Elegant fashion store", descriptionAr: "متجر أزياء أنيق", features: ["Gallery", "Wishlist", "Reviews", "Filters"], usageCount: 167 },
-  { id: 5, name: "SaaS Landing", nameAr: "صفحة SaaS", category: "landing_page", theme: "modern", description: "High-converting SaaS landing", descriptionAr: "صفحة هبوط SaaS عالية التحويل", features: ["Hero", "Features", "Pricing", "FAQ"], usageCount: 189 },
-  { id: 6, name: "Admin Dashboard", nameAr: "لوحة تحكم", category: "dashboard", theme: "modern", description: "Full admin dashboard", descriptionAr: "لوحة تحكم كاملة", features: ["Charts", "Tables", "CRUD", "Auth"], usageCount: 134 },
-  { id: 7, name: "Telegram Bot", nameAr: "بوت تليغرام", category: "telegram_bot", theme: "minimal", description: "Booking & payment bot", descriptionAr: "بوت حجز ودفع", features: ["Booking", "Payments", "Notifications", "Support"], usageCount: 87 },
-  { id: 8, name: "Tech Blog", nameAr: "مدونة تقنية", category: "blog", theme: "minimal", description: "Clean tech blog", descriptionAr: "مدونة تقنية نظيفة", features: ["CMS", "SEO", "Comments", "Newsletter"], usageCount: 76 },
-  { id: 9, name: "Creative Portfolio", nameAr: "بورتفوليو إبداعي", category: "portfolio", theme: "bold", description: "Creative portfolio", descriptionAr: "بورتفوليو إبداعي", features: ["Gallery", "About", "Contact", "Animations"], usageCount: 123 },
-  { id: 10, name: "SaaS App", nameAr: "تطبيق SaaS", category: "saas", theme: "modern", description: "Full SaaS with subscriptions", descriptionAr: "تطبيق SaaS مع اشتراكات", features: ["Auth", "Billing", "Dashboard", "API"], usageCount: 201 },
-  { id: 11, name: "2D Web Game", nameAr: "لعبة 2D", category: "web_game", theme: "bold", description: "2D browser game", descriptionAr: "لعبة متصفح 2D", features: ["Phaser.js", "Leaderboard", "Levels", "Sound"], usageCount: 45 },
-  { id: 12, name: "3D Game", nameAr: "لعبة 3D", category: "web_game", theme: "bold", description: "3D browser game", descriptionAr: "لعبة متصفح 3D", features: ["Babylon.js", "Physics", "Multiplayer", "Assets"], usageCount: 38 },
+  { id: 1, name: "Modern Company", nameAr: "موقع شركة عصري", category: "company_website", theme: "modern", description: "Clean modern company website", descriptionAr: "موقع شركة نظيف وعصري", features: ["SEO", "Blog", "Contact", "Portfolio"], usageCount: 142, preview: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&q=80&auto=format&fit=crop" },
+  { id: 2, name: "Bold Agency", nameAr: "وكالة جريئة", category: "company_website", theme: "bold", description: "Bold agency website", descriptionAr: "موقع وكالة جريء", features: ["Hero", "Services", "Team", "CTA"], usageCount: 98, preview: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&q=80&auto=format&fit=crop" },
+  { id: 3, name: "E-commerce Pro", nameAr: "متجر احترافي", category: "ecommerce", theme: "modern", description: "Full e-commerce with payments", descriptionAr: "متجر كامل مع نظام دفع", features: ["Cart", "Payments", "Inventory", "Orders"], usageCount: 215, preview: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&q=80&auto=format&fit=crop" },
+  { id: 4, name: "Fashion Store", nameAr: "متجر أزياء", category: "ecommerce", theme: "minimal", description: "Elegant fashion store", descriptionAr: "متجر أزياء أنيق", features: ["Gallery", "Wishlist", "Reviews", "Filters"], usageCount: 167, preview: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80&auto=format&fit=crop" },
+  { id: 5, name: "SaaS Landing", nameAr: "صفحة SaaS", category: "landing_page", theme: "modern", description: "High-converting SaaS landing", descriptionAr: "صفحة هبوط SaaS عالية التحويل", features: ["Hero", "Features", "Pricing", "FAQ"], usageCount: 189, preview: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&q=80&auto=format&fit=crop" },
+  { id: 6, name: "Admin Dashboard", nameAr: "لوحة تحكم", category: "dashboard", theme: "modern", description: "Full admin dashboard", descriptionAr: "لوحة تحكم كاملة", features: ["Charts", "Tables", "CRUD", "Auth"], usageCount: 134, preview: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&q=80&auto=format&fit=crop" },
+  { id: 7, name: "Telegram Bot", nameAr: "بوت تليغرام", category: "telegram_bot", theme: "minimal", description: "Booking & payment bot", descriptionAr: "بوت حجز ودفع", features: ["Booking", "Payments", "Notifications", "Support"], usageCount: 87, preview: "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&q=80&auto=format&fit=crop" },
+  { id: 8, name: "Tech Blog", nameAr: "مدونة تقنية", category: "blog", theme: "minimal", description: "Clean tech blog", descriptionAr: "مدونة تقنية نظيفة", features: ["CMS", "SEO", "Comments", "Newsletter"], usageCount: 76, preview: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&q=80&auto=format&fit=crop" },
+  { id: 9, name: "Creative Portfolio", nameAr: "بورتفوليو إبداعي", category: "portfolio", theme: "bold", description: "Creative portfolio", descriptionAr: "بورتفوليو إبداعي", features: ["Gallery", "About", "Contact", "Animations"], usageCount: 123, preview: "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=400&q=80&auto=format&fit=crop" },
+  { id: 10, name: "SaaS App", nameAr: "تطبيق SaaS", category: "saas", theme: "modern", description: "Full SaaS with subscriptions", descriptionAr: "تطبيق SaaS مع اشتراكات", features: ["Auth", "Billing", "Dashboard", "API"], usageCount: 201, preview: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&q=80&auto=format&fit=crop" },
+  { id: 11, name: "2D Web Game", nameAr: "لعبة 2D", category: "web_game", theme: "bold", description: "2D browser game", descriptionAr: "لعبة متصفح 2D", features: ["Phaser.js", "Leaderboard", "Levels", "Sound"], usageCount: 45, preview: "https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=400&q=80&auto=format&fit=crop" },
+  { id: 12, name: "3D Game", nameAr: "لعبة 3D", category: "web_game", theme: "bold", description: "3D browser game", descriptionAr: "لعبة متصفح 3D", features: ["Babylon.js", "Physics", "Multiplayer", "Assets"], usageCount: 38, preview: "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&q=80&auto=format&fit=crop" },
 ];
 
 const THEME_COLORS: Record<string, string> = {
@@ -119,9 +119,13 @@ export default function TemplatesPage() {
           <Card key={tpl.id} className="bg-card border-border hover:border-primary/30 transition-all duration-200 group overflow-hidden">
             {/* Preview Image Placeholder */}
             <div className="h-36 bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center relative overflow-hidden">
-              <div className="text-muted-foreground/30 group-hover:scale-110 transition-transform duration-300">
-                {CATEGORY_ICONS[tpl.category]}
-              </div>
+              {(tpl as any).preview ? (
+                <img src={(tpl as any).preview} alt={(lang === "ar" ? (tpl.nameAr ?? tpl.name) : tpl.name) as string} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={(e) => { (e.target as HTMLImageElement).parentElement!.innerHTML = `<div class="text-muted-foreground/30 flex items-center justify-center w-full h-full">${(CATEGORY_ICONS[tpl.category] as any)?.props ? '' : ''}</div>`; }} />
+              ) : (
+                <div className="text-muted-foreground/30 group-hover:scale-110 transition-transform duration-300">
+                  {CATEGORY_ICONS[tpl.category]}
+                </div>
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-3 gap-2">
                 <Button size="sm" variant="secondary" className="text-xs h-7 gap-1" onClick={() => toast.info("Preview coming soon")}>
                   <Eye className="w-3 h-3" /> {tr.templates.preview}
