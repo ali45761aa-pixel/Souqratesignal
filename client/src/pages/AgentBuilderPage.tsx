@@ -488,6 +488,19 @@ export default function AgentBuilderPage() {
   const injectConsoleInterceptor = (html: string): string => {
     // Clean HTML before injecting
     html = cleanHtmlContent(html);
+
+    // ── Integrity Check: detect truncated HTML and auto-close open tags ───────
+    if (html && !html.includes("</html>")) {
+      // Count open vs close tags to detect truncation
+      const openTags = (html.match(/<[a-z][a-z0-9]*/gi) || []).length;
+      const closeTags = (html.match(/<\/[a-z][a-z0-9]*/gi) || []).length;
+      if (openTags > closeTags + 5) {
+        // Auto-close: append missing closing tags
+        html = html.trimEnd() + "\n</div></section></main></body></html>";
+      } else {
+        html = html.trimEnd() + "\n</body></html>";
+      }
+    }
     const interceptor = `<script>
 (function() {
   var orig = { log: console.log, error: console.error, warn: console.warn, info: console.info };

@@ -621,8 +621,64 @@ agentsRouter.post("/execute-step", async (req: Request, res: Response) => {
     }
 
     // Extract code files from content
-    const files = extractFiles(fullContent, agentId);
-    res.write(`data: ${JSON.stringify({ type: "done", content: fullContent, files, agentId, stepId, hadThinking: thinkingContent.length > 0 })}\n\n`);
+    // ── Continuation System: detect truncated HTML and request completion ──────
+    let finalContent = fullContent;
+    const isHtmlAgent = ["frontend", "reviewer", "auditor"].includes(agentId);
+    if (isHtmlAgent && fullContent.length > 1000) {
+      const hasClosingHtml = finalContent.includes("</html>");
+      const hasClosingBody = finalContent.includes("</body>");
+      const openCount = (finalContent.match(/<[a-z][a-z0-9]*/gi) || []).length;
+      const closeCount = (finalContent.match(/<\/[a-z][a-z0-9]*/gi) || []).length;
+      const isTruncated = !hasClosingHtml || !hasClosingBody || (openCount > closeCount + 20);
+      if (isTruncated) {
+        res.write(`data: ${JSON.stringify({ type: "continuation_start", message: "Completing truncated HTML..." })}\n\n`);
+        try {
+          const contResponse = await fetch("https://api.deepseek.com/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+            signal: AbortSignal.timeout(120000),
+            body: JSON.stringify({
+              model: "deepseek-chat",
+              messages: [
+                { role: "system", content: "You are completing an HTML document that was cut off. Continue EXACTLY from where it stopped. Do NOT repeat any content already written. Do NOT add explanations. Output HTML code only." },
+                { role: "assistant", content: fullContent },
+                { role: "user", content: "The HTML was cut off. Continue from exactly where you stopped. Complete all remaining sections, close all open tags, and end with </body></html>." }
+              ],
+              max_tokens: 12000,
+              temperature: 0.1,
+              stream: true,
+            }),
+          });
+          const contReader = contResponse.body?.getReader();
+          const contDecoder = new TextDecoder();
+          let contContent = "";
+          if (contReader) {
+            while (true) {
+              const { done, value } = await contReader.read();
+              if (done) break;
+              for (const contLine of contDecoder.decode(value, { stream: true }).split("\n")) {
+                if (!contLine.startsWith("data: ") || contLine.includes("[DONE]")) continue;
+                try {
+                  const contParsed = JSON.parse(contLine.slice(6));
+                  const contText = contParsed.choices?.[0]?.delta?.content || "";
+                  if (contText) {
+                    contContent += contText;
+                    res.write(`data: ${JSON.stringify({ type: "chunk", content: contText })}\n\n`);
+                  }
+                } catch {}
+              }
+            }
+          }
+          const cleanFirst = fullContent.replace(/```\s*$/, "").trimEnd();
+          const cleanSecond = contContent.replace(/^```html\s*/i, "").replace(/^```\s*/i, "").trimStart();
+          finalContent = cleanFirst + "\n" + cleanSecond;
+          res.write(`data: ${JSON.stringify({ type: "continuation_done" })}\n\n`);
+        } catch { /* Continuation failed silently — keep original */ }
+      }
+    }
+
+    const files = extractFiles(finalContent, agentId);
+    res.write(`data: ${JSON.stringify({ type: "done", content: finalContent, files, agentId, stepId, hadThinking: thinkingContent.length > 0 })}\n\n`);
     res.end();
   } catch (err: any) {
     res.write(`data: ${JSON.stringify({ type: "error", message: err.message })}\n\n`);
@@ -1040,7 +1096,13 @@ JavaScript الإلزامي في نهاية الـ body:
 // 4. Smooth scroll لروابط الـ nav
 // 5. أي تفاعل خاص بالمشروع
 
-⚠️ تحذير صارم: أرجع الكود HTML الكامل فقط داخل \`\`\`html ... \`\`\` — لا تكتب أي نص أو شرح أو تعليق خارج الـ code block أبداً. أول حرف في ردك يجب أن يكون \`\`\`html وآخر حرف يجب أن يكون \`\`\`${ctx}`
+⚠️ تحذيرات صارمة جداً — لا استثناء:
+1. أرجع الكود HTML الكامل فقط — لا نص، لا شرح، لا markdown خارج الكود
+2. يجب أن يبدأ ردك بـ <!DOCTYPE html> مباشرة
+3. يجب أن ينتهي ردك بـ </body></html> — لا تقطع الكود أبداً
+4. إذا كان الموقع طويلاً، اختصر المحتوى لكن أكمل البنية الكاملة
+5. أكمل جميع الأقسام حتى لو كانت مختصرة — لا تترك أي tag مفتوح
+6. الـ JavaScript يجب أن يكون داخل </body> مباشرة قبل </html>${ctx}`
       : `You are a world-class Frontend developer at Awwwards level. Build a stunning professional website worth thousands of dollars.
 
 ${designInstructions}
