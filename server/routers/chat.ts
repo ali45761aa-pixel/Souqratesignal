@@ -2,35 +2,7 @@ import { z } from "zod";
 import { router, publicProcedure } from "../_core/trpc";
 import { getDb, chatMessages } from "../db";
 import { eq, desc } from "drizzle-orm";
-
-// ── DeepSeek direct call (independent from Manus Forge) ──────────────────────
-async function callDeepSeek(messages: { role: string; content: string }[]): Promise<string> {
-  const key = process.env.DEEPSEEK_API_KEY;
-  if (!key) throw new Error("DEEPSEEK_API_KEY not set");
-
-  const res = await fetch("https://api.deepseek.com/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      model: "deepseek-chat",
-      messages,
-      max_tokens: 4096,
-      temperature: 0.7,
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`DeepSeek error: ${res.status} – ${err}`);
-  }
-
-  const data = await res.json() as any;
-  return data.choices?.[0]?.message?.content ?? "";
-}
-
+import { callWithBestModel } from "../lib/modelRouter";
 export const chatRouter = router({
   send: publicProcedure
     .input(z.object({
@@ -49,10 +21,10 @@ export const chatRouter = router({
 
       let assistantText = "";
       try {
-        assistantText = await callDeepSeek([
+        assistantText = await callWithBestModel({ agentId: "chat", messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: input.content },
-        ]);
+        ]});
         const steps = generateWorkflowSteps(input.content, input.lang);
         return { message: assistantText, steps, tokensUsed: 0 };
       } catch (err) {

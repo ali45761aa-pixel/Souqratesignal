@@ -1,4 +1,5 @@
-import { getModelForAgent } from "../lib/modelRouter";
+import { getModelForAgent, callWithBestModel } from "../lib/modelRouter";
+import { planCache, makeCacheKey } from "../lib/cache";
 import { Router, Request, Response } from "express";
 import { buildThinkingPrompt, observeAndDecide, LOOP_PHASES } from "../lib/agentLoop";
 import { detectTheme, generateDesignSystemCSS, getDesignInstructions, getUnsplashPhotos, DESIGN_THEMES } from '../lib/designSystem';

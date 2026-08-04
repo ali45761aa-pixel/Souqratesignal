@@ -4,6 +4,7 @@ import express from "express";
 import { createServer } from "http";
 import helmet from "helmet";
 import net from "net";
+import rateLimit from "express-rate-limit";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
@@ -45,6 +46,40 @@ async function startServer() {
     contentSecurityPolicy: false, // disabled to allow inline scripts in dev
     crossOriginEmbedderPolicy: false, // allow iframes
   }));
+
+  // ── Rate Limiting ─────────────────────────────────────────────────────────
+  // General API limit: 200 requests per 15 minutes
+  const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests, please try again later." },
+  });
+
+  // Strict limit for AI generation endpoints: 30 per 15 minutes
+  const aiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "AI generation rate limit exceeded. Please wait before generating again." },
+  });
+
+  // Auth limit: 10 login attempts per 15 minutes
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many login attempts. Please try again in 15 minutes." },
+  });
+
+  app.use("/api", generalLimiter);
+  app.use("/api/agents", aiLimiter);
+  app.use("/api/stream-build", aiLimiter);
+  app.use("/api/trpc/auth.login", authLimiter);
+  app.use("/api/trpc/auth.register", authLimiter);
 
   // Health check endpoint
   app.get("/api/health", (req, res) => {

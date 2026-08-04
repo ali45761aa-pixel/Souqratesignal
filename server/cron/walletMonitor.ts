@@ -60,10 +60,22 @@ export async function monitorCryptoWallets() {
   }
 }
 
+// Only accept transactions within 24 hours of payment creation
+const PAYMENT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 async function checkPaymentOnChain(payment: any): Promise<boolean> {
-  // In production, this would call the actual blockchain API
-  // For now, we implement the Memo matching logic structure
+  // Validate payment age — reject payments older than 24 hours
+  const paymentAge = Date.now() - new Date(payment.createdAt).getTime();
+  if (paymentAge > PAYMENT_MAX_AGE_MS) {
+    console.warn(`[WalletMonitor] Payment ${payment.id} expired (age: ${Math.round(paymentAge / 3600000)}h)`);
+    return false;
+  }
   if (!payment.walletAddress || !payment.memo) return false;
+  // Validate memo format — must be alphanumeric to prevent injection
+  if (!/^[A-Za-z0-9_-]{6,64}$/.test(payment.memo)) {
+    console.warn(`[WalletMonitor] Invalid memo format for payment ${payment.id}`);
+    return false;
+  }
 
   const currency = payment.cryptoCurrency as string;
 
@@ -150,7 +162,8 @@ async function checkBSC(address: string, memo: string, amount: number): Promise<
   const data = await res.json();
   const txs = data.result ?? [];
   return txs.some((tx: any) =>
-    tx.input?.includes(Buffer.from(memo).toString("hex"))
+    tx.input?.includes(Buffer.from(memo).toString("hex")) &&
+    Math.abs(parseInt(tx.value ?? "0") / 1e18 - amount) < 0.001
   );
 }
 

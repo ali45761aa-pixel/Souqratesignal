@@ -147,3 +147,47 @@ async function streamWithDeepSeek(opts: {
     }),
   });
 }
+
+// ── Non-streaming call (for chat router and simple completions) ───────────────
+export async function callWithBestModel(opts: {
+  agentId?: string;
+  messages: { role: string; content: string }[];
+  maxTokens?: number;
+  temperature?: number;
+}): Promise<string> {
+  const { agentId = "chat", messages, maxTokens = 4096, temperature = 0.7 } = opts;
+  const model = getModelForAgent(agentId);
+
+  if (model === "claude") {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      // Fallback to DeepSeek if Claude key not available
+      return callWithBestModel({ agentId: "chat", messages, maxTokens, temperature });
+    }
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: maxTokens,
+        messages: messages.filter(m => m.role !== "system"),
+        system: messages.find(m => m.role === "system")?.content,
+      }),
+    });
+    if (!res.ok) throw new Error(`Claude error: ${res.status}`);
+    const data = await res.json() as any;
+    return data.content?.[0]?.text ?? "";
+  }
+
+  // DeepSeek (default)
+  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.BUILT_IN_FORGE_API_KEY;
+  const apiUrl = process.env.BUILT_IN_FORGE_API_URL || "https://api.deepseek.com";
+  const res = await fetch(`${apiUrl}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+    body: JSON.stringify({ model: DEEPSEEK_MODEL, messages, max_tokens: maxTokens, temperature }),
+  });
+  if (!res.ok) throw new Error(`DeepSeek error: ${res.status}`);
+  const data = await res.json() as any;
+  return data.choices?.[0]?.message?.content ?? "";
+}

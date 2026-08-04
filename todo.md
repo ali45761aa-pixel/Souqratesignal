@@ -186,3 +186,15 @@
 - [x] حفظ version snapshot في جدول project_versions
 - [x] تحديث PlatformLayout لاستخدام meLocal/logoutLocal
 - [x] 0 TypeScript errors
+
+## Phase 15: Security & Architecture Fixes (from audit report)
+- [ ] Rate Limiting على جميع الـ endpoints (express-rate-limit)
+- [ ] Input Sanitization لمنع XSS وSQL injection
+- [ ] تحسين آلية التحقق من الدفع (إضافة amount verification)
+- [ ] إصلاح drizzle/relations.ts — إضافة العلاقات الحقيقية
+- [ ] إزالة Mock DB fallback من projects.ts
+- [ ] توحيد callDeepSeek في chat.ts مع modelRouter
+- [ ] حذف vite.config.ts.bak
+- [ ] تقسيم agents.ts إلى ملفات منفصلة
+- [ ] إضافة caching للـ templates وnتائج LLM
+- [ ] إضافة اختبارات للـ endpoints الحرجة
