@@ -11,6 +11,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { streamRouter } from "../routes/stream";
 import deployRouter from "../routes/deploy";
+import { qaRouter } from "../routes/qa";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -53,6 +54,8 @@ async function startServer() {
   app.use("/api/agents", agentsRouter);
   // Deploy, GitHub, Unsplash, Tavily, Firecrawl endpoints
   app.use("/api/deploy", deployRouter);
+  // QA system endpoints
+  app.use("/api/qa", qaRouter);
 
 
   // tRPC API

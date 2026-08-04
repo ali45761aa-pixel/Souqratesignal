@@ -178,6 +178,13 @@ export default function AgentBuilderPage() {
   const [isCopiedShare, setIsCopiedShare] = useState(false);
   const [isEditingFile, setIsEditingFile] = useState(false);
   const [editedFileContent, setEditedFileContent] = useState("");
+  // QA System states
+  const [qaReport, setQaReport] = useState<any>(null);
+  const [qaAnalysis, setQaAnalysis] = useState<any>(null);
+  const [isRunningQA, setIsRunningQA] = useState(false);
+  const [qaVisualReport, setQaVisualReport] = useState("");
+  const [isRunningVisualQA, setIsRunningVisualQA] = useState(false);
+  const [isAutoFixing, setIsAutoFixing] = useState(false);
   const [htmlValidation, setHtmlValidation] = useState<{ score: number; seoScore?: number; perfScore?: number; mobileScore?: number; a11yScore?: number; errors: string[]; warnings: string[]; suggestions?: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
@@ -1826,8 +1833,8 @@ export default function AgentBuilderPage() {
         {/* ── Observability Tab ── */}
         {activeTab === "observe" && (
           <div className="h-full overflow-y-auto p-3">
-            <div className="max-w-3xl mx-auto">
-              <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="max-w-3xl mx-auto space-y-4">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-xl border border-border bg-card/50 p-3 text-center">
                   <p className="text-2xl font-bold text-primary">${totalCost.toFixed(4)}</p>
                   <p className="text-xs text-muted-foreground mt-1">{lang === "ar" ? "التكلفة الإجمالية" : "Total Cost"}</p>
@@ -1841,12 +1848,109 @@ export default function AgentBuilderPage() {
                   <p className="text-xs text-muted-foreground mt-1">{lang === "ar" ? "عدد الخطوات" : "Steps"}</p>
                 </div>
               </div>
-              {observability.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground/40">
-                  {lang === "ar" ? "لا توجد بيانات بعد. نفّذ مشروعاً لرؤية تفاصيل التكلفة." : "No data yet. Run a project to see cost details."}
+              {htmlFile && (
+                <div className="rounded-xl border border-border bg-card/30 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold">🔬 {lang === "ar" ? "نظام QA المتكامل" : "Integrated QA System"}</h3>
+                    <div className="flex gap-2">
+                      <button onClick={async () => {
+                        setIsRunningQA(true);
+                        try {
+                          const [analysis, interactive] = await Promise.all([
+                            fetch("/api/qa/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ html: htmlFile.content }) }).then(r => r.json()),
+                            fetch("/api/qa/interactive-check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ html: htmlFile.content }) }).then(r => r.json()),
+                          ]);
+                          setQaReport({ analysis, interactive });
+                        } catch (e: any) { toast.error((e as Error).message); }
+                        setIsRunningQA(false);
+                      }} disabled={isRunningQA} className="text-xs px-3 py-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors flex items-center gap-1">
+                        {isRunningQA ? <Loader2 className="w-3 h-3 animate-spin" /> : "⚡"} {lang === "ar" ? "فحص سريع" : "Quick Check"}
+                      </button>
+                      <button onClick={async () => {
+                        setIsRunningVisualQA(true); setQaVisualReport("");
+                        try {
+                          const res = await fetch("/api/qa/visual-qa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ html: htmlFile.content, lang }) });
+                          const reader = res.body?.getReader(); const decoder = new TextDecoder();
+                          if (reader) { while (true) { const { done, value } = await reader.read(); if (done) break; for (const line of decoder.decode(value, { stream: true }).split("\n")) { if (!line.startsWith("data: ")) continue; try { const p = JSON.parse(line.slice(6)); if (p.type === "chunk") setQaVisualReport(prev => prev + p.content); if (p.type === "qa_data") setQaReport((prev: any) => ({ ...prev, aiScore: p.data })); } catch {} } } }
+                        } catch (e: any) { toast.error((e as Error).message); }
+                        setIsRunningVisualQA(false);
+                      }} disabled={isRunningVisualQA} className="text-xs px-3 py-1.5 bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500/20 transition-colors flex items-center gap-1">
+                        {isRunningVisualQA ? <Loader2 className="w-3 h-3 animate-spin" /> : "🤖"} {lang === "ar" ? "تحليل AI" : "AI Analysis"}
+                      </button>
+                    </div>
+                  </div>
+                  {qaReport?.analysis && (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-4 gap-2">
+                        {([
+                          { label: lang === "ar" ? "أداء" : "Perf", score: qaReport.analysis.scores?.performance ?? 0, icon: "⚡" },
+                          { label: "SEO", score: qaReport.analysis.scores?.seo ?? 0, icon: "🔍" },
+                          { label: lang === "ar" ? "وصول" : "A11y", score: qaReport.analysis.scores?.accessibility ?? 0, icon: "♿" },
+                          { label: lang === "ar" ? "موبايل" : "Mobile", score: qaReport.analysis.scores?.mobile ?? 0, icon: "📱" },
+                        ] as {label:string;score:number;icon:string}[]).map(item => (
+                          <div key={item.label} className={cn("rounded-lg p-2 text-center border", item.score >= 80 ? "bg-green-500/10 border-green-500/20" : item.score >= 60 ? "bg-yellow-500/10 border-yellow-500/20" : "bg-red-500/10 border-red-500/20")}>
+                            <div className="text-base">{item.icon}</div>
+                            <div className={cn("text-lg font-bold", item.score >= 80 ? "text-green-400" : item.score >= 60 ? "text-yellow-400" : "text-red-400")}>{item.score}</div>
+                            <div className="text-xs text-muted-foreground">{item.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        {[
+                          { key: "hasAOS", label: "AOS" },
+                          { key: "hasAlpine", label: "Alpine.js" },
+                          { key: "hasLucide", label: "Lucide" },
+                        ].map(lib => (
+                          <span key={lib.key} className={cn("text-xs px-2 py-1 rounded-full", qaReport.analysis[lib.key] ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400")}>
+                            {qaReport.analysis[lib.key] ? "✅" : "❌"} {lib.label}
+                          </span>
+                        ))}
+                        <span className={cn("text-xs px-2 py-1 rounded-full", !qaReport.analysis.hasLorem ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400")}>
+                          {!qaReport.analysis.hasLorem ? "✅" : "❌"} {lang === "ar" ? "لا Lorem" : "No Lorem"}
+                        </span>
+                      </div>
+                      {qaReport.interactive && qaReport.interactive.total > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">{lang === "ar" ? "الفحص التفاعلي:" : "Interactive:"} {qaReport.interactive.critical} 🔴 {qaReport.interactive.warnings} 🟡 {qaReport.interactive.notes} 🟢</p>
+                          <div className="max-h-28 overflow-y-auto space-y-1">
+                            {qaReport.interactive.results?.slice(0, 6).map((issue: {type:string;element:string;issue:string;fix:string}, i: number) => (
+                              <div key={i} className={cn("text-xs px-2 py-1 rounded border", issue.type === "critical" ? "bg-red-500/10 border-red-500/20 text-red-300" : issue.type === "warning" ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-300" : "bg-blue-500/10 border-blue-500/20 text-blue-300")}>
+                                {issue.issue}
+                              </div>
+                            ))}
+                          </div>
+                          <button onClick={async () => {
+                            if (!htmlFile || !qaReport.interactive.results) return;
+                            setIsAutoFixing(true);
+                            const issues = qaReport.interactive.results.filter((i: {type:string}) => i.type !== "note").slice(0, 10);
+                            if (!issues.length) { toast.success(lang === "ar" ? "لا مشاكل!" : "No issues!"); setIsAutoFixing(false); return; }
+                            try {
+                              const res = await fetch("/api/qa/auto-fix", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ html: htmlFile.content, issues, lang }) });
+                              const reader = res.body?.getReader(); const decoder = new TextDecoder(); let fixed = "";
+                              if (reader) { while (true) { const { done, value } = await reader.read(); if (done) break; for (const line of decoder.decode(value, { stream: true }).split("\n")) { if (!line.startsWith("data: ")) continue; try { const p = JSON.parse(line.slice(6)); if (p.type === "chunk") fixed += p.content; } catch {} } } }
+                              const m = fixed.match(/```html\s*([\s\S]*?)```/i);
+                              if (m) { setLiveHtmlFile(m[1].trim()); toast.success(lang === "ar" ? "✅ تم الإصلاح!" : "✅ Fixed!"); setQaReport(null); }
+                            } catch (e: any) { toast.error((e as Error).message); }
+                            setIsAutoFixing(false);
+                          }} disabled={isAutoFixing} className="w-full text-xs py-2 bg-green-500/10 text-green-400 rounded-lg hover:bg-green-500/20 transition-colors flex items-center justify-center gap-2">
+                            {isAutoFixing ? <Loader2 className="w-3 h-3 animate-spin" /> : "🔧"} {lang === "ar" ? "إصلاح تلقائي" : "Auto-Fix Issues"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {qaVisualReport && (
+                    <div className="mt-3 p-3 bg-card/50 rounded-lg border border-border/50 max-h-56 overflow-y-auto">
+                      <p className="text-xs font-medium text-purple-400 mb-2">🤖 {lang === "ar" ? "تقرير AI المرئي" : "AI Visual Report"}</p>
+                      <pre className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">{qaVisualReport}</pre>
+                      {isRunningVisualQA && <span className="animate-pulse text-purple-400">▌</span>}
+                    </div>
+                  )}
                 </div>
-              ) : (
+              )}
+              {observability.length > 0 && (
                 <div className="rounded-xl border border-border overflow-hidden">
+                  <p className="text-xs font-medium text-muted-foreground px-3 py-2 border-b border-border bg-card/30">{lang === "ar" ? "تفاصيل التكلفة" : "Cost breakdown"}</p>
                   <table className="w-full text-xs">
                     <thead className="bg-card/50 border-b border-border">
                       <tr>
@@ -1873,7 +1977,7 @@ export default function AgentBuilderPage() {
           </div>
         )}
 
-        {/* ── Chat / Q&A Tab ── */}
+                {/* ── Chat / Q&A Tab ── */}
         {activeTab === "chat" && (
           <div className="h-full flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
