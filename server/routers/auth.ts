@@ -9,6 +9,7 @@ import { getSessionCookieOptions } from "../_core/cookies";
 import { COOKIE_NAME } from "@shared/const";
 import { SignJWT, jwtVerify } from "jose";
 import { ENV } from "../_core/env";
+import { parse as parseCookieHeader } from "cookie";
 
 const JWT_SECRET = new TextEncoder().encode(ENV.cookieSecret || "fallback-secret-change-me");
 
@@ -97,7 +98,9 @@ export const localAuthRouter = router({
   // ── Me (check session) ────────────────────────────────────────────────────
   meLocal: publicProcedure
     .query(async ({ ctx }) => {
-      const token = ctx.req.cookies?.[COOKIE_NAME];
+      // Parse cookies manually — works without cookie-parser middleware
+      const rawCookies = parseCookieHeader(ctx.req.headers.cookie ?? "");
+      const token = rawCookies[COOKIE_NAME] ?? ctx.req.cookies?.[COOKIE_NAME];
       if (!token) return null;
 
       try {
