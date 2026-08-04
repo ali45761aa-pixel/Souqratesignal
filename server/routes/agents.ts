@@ -219,6 +219,38 @@ function generatePlan(prompt: string, lang: string): {
       estimatedTime: "5s",
     },
     {
+      id: "step-knowledge", agentId: "research",
+      titleAr: "جمع المعرفة وتحليل المنافسين",
+      titleEn: "Knowledge Collection & Competitor Analysis",
+      descAr: "البحث في أفضل المواقع المنافسة واستخراج أفضل الممارسات واتجاهات التصميم",
+      descEn: "Researching top competitor sites and extracting best practices and design trends",
+      estimatedTime: "10s",
+    },
+    {
+      id: "step-sitemap", agentId: "architect",
+      titleAr: "خريطة الموقع وهيكل الصفحات",
+      titleEn: "Sitemap & Page Structure",
+      descAr: "تحديد جميع الصفحات والعلاقات بينها وتدفق المستخدم",
+      descEn: "Defining all pages, relationships between them and user flow",
+      estimatedTime: "5s",
+    },
+    {
+      id: "step-ux", agentId: "ux",
+      titleAr: "تخطيط تجربة المستخدم",
+      titleEn: "UX Planning",
+      descAr: "تحديد مسار المستخدم وأماكن CTA والنماذج وتدفق التحويل",
+      descEn: "Defining user journey, CTA placement, forms and conversion flow",
+      estimatedTime: "8s",
+    },
+    {
+      id: "step-wireframe", agentId: "solutions",
+      titleAr: "Wireframe وهيكل الصفحة",
+      titleEn: "Wireframe & Page Layout",
+      descAr: "بناء مخطط تفصيلي لكل قسم قبل كتابة أي كود",
+      descEn: "Building detailed layout plan for each section before writing any code",
+      estimatedTime: "8s",
+    },
+    {
       id: "step-2", agentId: "designer",
       titleAr: "تصميم الهوية البصرية",
       titleEn: "Visual Identity Design",
@@ -233,6 +265,14 @@ function generatePlan(prompt: string, lang: string): {
       descAr: "كتابة جميع النصوص والعناوين والأوصاف بأسلوب احترافي",
       descEn: "Writing all texts, headlines and descriptions in professional style",
       estimatedTime: "10s",
+    },
+    {
+      id: "step-components", agentId: "brand",
+      titleAr: "مكتبة المكونات",
+      titleEn: "Component Library",
+      descAr: "بناء Button وCard وNavbar وHero وFooter وPricing كمكونات مستقلة قابلة لإعادة الاستخدام",
+      descEn: "Building Button, Card, Navbar, Hero, Footer and Pricing as independent reusable components",
+      estimatedTime: "15s",
     },
     {
       id: "step-4", agentId: "frontend",
@@ -379,6 +419,22 @@ function generatePlan(prompt: string, lang: string): {
   }
 
   // ── Mandatory quality steps at the end of EVERY plan ──────────────────────
+  const accessibilityStep = {
+    id: "step-a11y", agentId: "innovation",
+    titleAr: "تحسين إمكانية الوصول",
+    titleEn: "Accessibility Enhancement",
+    descAr: "إضافة ARIA labels وContrast ratios وKeyboard navigation وScreen reader support",
+    descEn: "Adding ARIA labels, contrast ratios, keyboard navigation and screen reader support",
+    estimatedTime: "8s",
+  };
+  const finalPolishStep = {
+    id: "step-polish", agentId: "strategy",
+    titleAr: "اللمسات النهائية والتحسين الشامل",
+    titleEn: "Final Polish & Enhancement",
+    descAr: "إضافة Empty States وSkeleton Screens وError Pages وFavicon وManifest وPage Transitions",
+    descEn: "Adding Empty States, Skeleton Screens, Error Pages, Favicon, Manifest and Page Transitions",
+    estimatedTime: "10s",
+  };
   const reviewerStep = {
     id: "step-reviewer", agentId: "reviewer",
     titleAr: "مراجعة الكود وإصلاح الأخطاء",
@@ -400,8 +456,8 @@ function generatePlan(prompt: string, lang: string): {
   const docsStep = basePlan.find(s => s.agentId === "docs");
   const planWithoutDocs = basePlan.filter(s => s.agentId !== "docs");
   return docsStep
-    ? [...planWithoutDocs, docsStep, reviewerStep, auditorStep]
-    : [...planWithoutDocs, reviewerStep, auditorStep];
+    ? [...planWithoutDocs, accessibilityStep, finalPolishStep, docsStep, reviewerStep, auditorStep]
+    : [...planWithoutDocs, accessibilityStep, finalPolishStep, reviewerStep, auditorStep];
 }
 
 // ── Plan endpoint ─────────────────────────────────────────────────────────────
@@ -425,7 +481,7 @@ agentsRouter.post("/plan", async (req: Request, res: Response) => {
 
 أرجع JSON array فقط بدون أي نص آخر. كل عنصر يحتوي:
 - id: معرف فريد (step-1, step-2, ...)
-- agentId: أحد الوكلاء التالية فقط: analyzer, designer, frontend, backend, database, security, content, bot, game, payment, analytics, seo, mobile, tester, docs, deployer, optimizer, memory
+- agentId: أحد الوكلاء التالية فقط: analyzer, research, architect, ux, solutions, designer, brand, content, frontend, mobile, seo, optimizer, docs, backend, database, security, bot, game, payment, analytics, tester, deployer, memory, innovation, strategy, reviewer, auditor
 - titleAr: عنوان الخطوة بالعربية (قصير ومحدد)
 - titleEn: عنوان الخطوة بالإنجليزية
 - descAr: وصف تفصيلي لما سيفعله الوكيل (جملتان على الأقل)
@@ -445,7 +501,7 @@ agentsRouter.post("/plan", async (req: Request, res: Response) => {
 
 Return ONLY a JSON array with no other text. Each element contains:
 - id: unique identifier (step-1, step-2, ...)
-- agentId: one of: analyzer, designer, frontend, backend, database, security, content, bot, game, payment, analytics, seo, mobile, tester, docs, deployer, optimizer, memory
+- agentId: one of: analyzer, research, architect, ux, solutions, designer, brand, content, frontend, mobile, seo, optimizer, docs, backend, database, security, bot, game, payment, analytics, tester, deployer, memory, innovation, strategy, reviewer, auditor
 - titleAr: step title in Arabic (short and specific)
 - titleEn: step title in English
 - descAr: detailed description of what the agent will do (at least 2 sentences)

@@ -772,7 +772,7 @@ export default function AgentBuilderPage() {
             lang, projectContext: projectContext.slice(0, 5000),
             previousFiles: (() => {
               // For reviewer/auditor: pass the full HTML file so they can actually fix it
-              if (step.agentId === "reviewer" || step.agentId === "auditor") {
+              if (["reviewer", "auditor", "innovation", "strategy"].includes(step.agentId)) {
                 const htmlFiles = allFiles.filter(f =>
                   f.language === "html" &&
                   (f.content.includes("<!DOCTYPE") || f.content.includes("<html") || f.content.includes("<body"))
@@ -783,6 +783,10 @@ export default function AgentBuilderPage() {
                   const otherFiles = allFiles.filter(f => f.language !== "html").slice(-3).map(f => ({ name: f.name, content: f.content.slice(0, 1000), language: f.language }));
                   return [{ name: latestHtml.name, content: latestHtml.content, language: "html" }, ...otherFiles];
                 }
+              }
+              // For research/architect/ux/solutions/brand: pass context only (no HTML yet)
+              if (["research", "architect", "ux", "solutions", "brand"].includes(step.agentId)) {
+                return allFiles.slice(-3).map(f => ({ name: f.name, content: f.content.slice(0, 2000), language: f.language }));
               }
               return allFiles.slice(-5).map(f => ({ name: f.name, content: f.content.slice(0, 2000), language: f.language }));
             })(),
@@ -825,7 +829,27 @@ export default function AgentBuilderPage() {
                  f.language === "html" &&
                  (f.content.includes("<!DOCTYPE") || f.content.includes("<html") || f.content.includes("<body"))
                );
-               if (htmlStep) { setLiveHtmlFile(htmlStep.content); setActiveTab("preview"); }
+              if (htmlStep) { setLiveHtmlFile(htmlStep.content); setActiveTab("preview"); }
+              // ── Quality Gate: check HTML completeness after frontend step ──
+              if (step.agentId === "frontend" && htmlStep) {
+                const html = htmlStep.content;
+                const isComplete = html.includes("</html>") && html.includes("</body>");
+                const hasStyle = html.includes("<style") || html.includes("style=");
+                const hasContent = html.length > 3000;
+                if (!isComplete || !hasStyle || !hasContent) {
+                  toast(lang === "ar"
+                    ? `⚠️ الكود غير مكتمل — سيُكمله وكيل المراجعة تلقائياً`
+                    : `⚠️ Code incomplete — reviewer will complete it automatically`,
+                    { duration: 3000 }
+                  );
+                } else {
+                  toast.success(lang === "ar"
+                    ? `✅ اجتاز فحص الجودة — HTML مكتمل`
+                    : `✅ Quality gate passed — HTML complete`,
+                    { duration: 2000 }
+                  );
+                }
+              }
                projectContext += `\n\n=== ${step.agentId} output ===\n${stepContent.slice(0, 1000)}`;
                setPlan(prev => prev.map((s, j) => j === i ? {
                  ...s, status: "done", output: stepContent,
